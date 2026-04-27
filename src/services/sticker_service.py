@@ -14,17 +14,19 @@ class StickerService:
         down_file = await bot.download_file(file.file_path)
         file_data = down_file.read()
 
-        if set_type == "copy_only":
+        if set_type == "copy_only" or set_type in ["animated", "video", "custom_emoji_anim", "custom_emoji_video"]:
             return file_data
         
-        if set_type in ["regular", "copy"]:
-            return ImageProcessor.prepare_regular(file_data)
-        elif set_type == "custom_emoji":
-            return ImageProcessor.prepare_emoji(file_data)
-        elif set_type == "emoji_nobg":
-            return ImageProcessor.prepare_emoji_nobg(file_data)
+        # Only use PIL for static formats
+        if set_type in ["regular", "copy", "custom_emoji", "emoji_nobg"]:
+            if set_type in ["regular", "copy"]:
+                return ImageProcessor.prepare_regular(file_data)
+            elif set_type == "custom_emoji":
+                return ImageProcessor.prepare_emoji(file_data)
+            elif set_type == "emoji_nobg":
+                return ImageProcessor.prepare_emoji_nobg(file_data)
         
-        return file_data # animated/video/custom_emoji_anim/video bypass PIL
+        return file_data
 
     @staticmethod
     def create_input_sticker(file_data: bytes, emoji: str, format: str) -> InputSticker:

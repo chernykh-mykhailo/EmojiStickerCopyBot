@@ -52,3 +52,11 @@ class ImageProcessor:
         img.putdata(new_data)
         
         return ImageProcessor._fit_and_pad(img, 100)
+
+    @staticmethod
+    def get_placeholder(size: int = 512) -> bytes:
+        """Generate a simple transparent placeholder of exact size"""
+        img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+        out = io.BytesIO()
+        img.save(out, format="WEBP", lossless=True)
+        return out.getvalue()

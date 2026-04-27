@@ -1,5 +1,6 @@
 import re
 import asyncio
+import logging
 from aiogram import Router, F, Bot, types, html
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -10,6 +11,7 @@ from services.sticker_service import StickerService
 from services.user_service import UserService
 from database.repositories.sticker_repo import StickerRepository
 from utils.l10n import l10n
+from utils.image import ImageProcessor
 from keyboards.inline import (
     get_packs_keyboard, get_cancel_keyboard, get_done_keyboard,
     get_copy_menu, get_user_packs_keyboard, get_disable_keyboard,
@@ -18,6 +20,7 @@ from keyboards.inline import (
 )
 
 router = Router()
+logger = logging.getLogger(__name__)
 
 class PackCreation(StatesGroup):
     waiting_type = State()
@@ -60,34 +63,82 @@ async def select_type(callback: types.CallbackQuery, state: FSMContext):
             reply_markup=get_cancel_keyboard(user.language_code)
         )
     else:
-        await state.set_state(PackCreation.waiting_name)
+        await state.set_state(PackCreation.waiting_title)
         await callback.message.edit_text(
-            l10n.get_text(user.language_code, "prompt-name"),
+            l10n.get_text(user.language_code, "prompt-title"),
             reply_markup=get_cancel_keyboard(user.language_code)
         )
     await callback.answer()
 
-@router.message(PackCreation.waiting_name)
-async def process_name(message: types.Message, state: FSMContext):
+@router.message(PackCreation.waiting_title, F.text)
+async def process_title(message: types.Message, state: FSMContext, bot: Bot):
+    if not message.text: return
+    title = message.text.strip()
+    await state.update_data(pack_title=title)
+    
+    # Check if title can be used as short name (latin + digits)
+    latin_name = re.sub(r"[^a-zA-Z0-9_]", "", title)
+    if latin_name and re.match(r"^[a-zA-Z][a-zA-Z0-9_]*$", latin_name) and latin_name.lower() == title.lower():
+        # Title is good for link!
+        await finalize_pack_setup(message, state, bot, latin_name, title)
+    else:
+        # Title is not good for link, ask for one
+        await state.set_state(PackCreation.waiting_name)
+        await message.reply(l10n.get_text(message.from_user.language_code, "prompt-name"))
+
+@router.message(PackCreation.waiting_name, F.text)
+async def process_name(message: types.Message, state: FSMContext, bot: Bot):
+    if not message.text: return
     name = message.text.strip()
     if not re.match(r"^[a-zA-Z0-9_]+$", name):
         await message.reply(l10n.get_text(message.from_user.language_code, "err-invalid-name"))
         return
     
-    await state.update_data(pack_name_short=name)
-    await state.set_state(PackCreation.waiting_title)
-    await message.reply(l10n.get_text(message.from_user.language_code, "prompt-title"))
+    data = await state.get_data()
+    await finalize_pack_setup(message, state, bot, name, data.get("pack_title"))
 
-@router.message(PackCreation.waiting_title)
-async def process_title(message: types.Message, state: FSMContext):
-    title = message.text.strip()
-    await state.update_data(pack_title=title)
-    await state.set_state(PackCreation.adding_items)
+async def finalize_pack_setup(message: types.Message, state: FSMContext, bot: Bot, name_short: str, title: str):
+    data = await state.get_data()
+    sticker_type = data.get("sticker_type")
     
-    await message.reply(
-        l10n.get_text(message.from_user.language_code, "prompt-media", title=title),
-        reply_markup=get_done_keyboard(message.from_user.language_code)
-    )
+    me = await bot.get_me()
+    full_name_base = f"{name_short}_by_{me.username}"
+    full_title = f"{title} by @{me.username}"
+    
+    await state.update_data(pack_name_short=name_short, full_name=full_name_base, full_title=full_title)
+    
+    # Create pack with placeholder immediately
+    pack_service = container.resolve(PackService)
+    sticker_service = container.resolve(StickerService)
+    
+    try:
+        # Use 100x100 for emoji, 512x512 for regular
+        size = 100 if sticker_type == "custom_emoji" else 512
+        placeholder_data = ImageProcessor.get_placeholder(size)
+        
+        # Determine format
+        sticker_format = "static" # Placeholder is always static
+        
+        input_sticker = sticker_service.create_input_sticker(placeholder_data, "⏳", sticker_format)
+        
+        await pack_service.create_new_set(
+            user_id=message.from_user.id,
+            name=full_name_base,
+            title=full_title,
+            stickers=[input_sticker],
+            sticker_type=sticker_type
+        )
+        
+        await state.update_data(pack_created=True, placeholder_active=True)
+        await state.set_state(PackCreation.adding_items)
+        
+        await message.reply(
+            l10n.get_text(message.from_user.language_code, "prompt-media", title=title),
+            reply_markup=get_done_keyboard(message.from_user.language_code)
+        )
+    except Exception as e:
+        logger.exception(f"Error creating pack with placeholder: {e}")
+        await message.reply(l10n.get_text(message.from_user.language_code, "err-generic", error=html.quote(str(e))))
 
 @router.message(PackCreation.adding_items, F.sticker | F.photo)
 async def process_item(message: types.Message, state: FSMContext, bot: Bot):
@@ -110,23 +161,32 @@ async def process_item(message: types.Message, state: FSMContext, bot: Bot):
     
     try:
         file_data = await sticker_service.download_and_process(bot, file_id, sticker_type)
-        input_sticker = sticker_service.create_input_sticker(file_data, emoji or "😀", "static")
         
-        if not data.get("pack_created"):
-            await pack_service.create_new_set(
-                user_id=message.from_user.id,
-                name=full_name_base,
-                title=full_title,
-                stickers=[input_sticker],
-                sticker_type=sticker_type
-            )
-            await state.update_data(pack_created=True)
-        else:
-            await pack_service.add_sticker(message.from_user.id, full_name_base, input_sticker)
+        # Determine format
+        sticker_format = "static"
+        if sticker_type == "animated": sticker_format = "animated"
+        elif sticker_type == "video": sticker_format = "video"
+
+        input_sticker = sticker_service.create_input_sticker(file_data, emoji or "😀", sticker_format)
+        
+        full_name = data.get("full_name")
+        await pack_service.add_sticker(message.from_user.id, full_name, input_sticker)
+        
+        # If placeholder is active, delete it
+        if data.get("placeholder_active"):
+            try:
+                # We need to get the set to find the placeholder (first sticker)
+                sticker_set = await bot.get_sticker_set(full_name)
+                if sticker_set.stickers:
+                    await bot.delete_sticker_from_set(sticker_set.stickers[0].file_id)
+                await state.update_data(placeholder_active=False)
+            except Exception as e:
+                logger.warning(f"Failed to delete placeholder: {e}")
         
         await proc_msg.delete()
         await message.answer(l10n.get_text(message.from_user.language_code, "item-added", count="?"))
     except Exception as e:
+        logger.exception(f"Error processing item: {e}")
         await proc_msg.edit_text(l10n.get_text(message.from_user.language_code, "err-generic", error=html.quote(str(e))))
 
 @router.message(PackCreation.cloning_source, F.sticker | F.text)
@@ -155,6 +215,7 @@ async def process_cloning_source(message: types.Message, state: FSMContext, bot:
 
 @router.message(PackCreation.cloning_title, F.text)
 async def process_cloning_title(message: types.Message, state: FSMContext):
+    if not message.text: return
     title = message.text.strip()
     await state.update_data(cloning_title=title)
     await state.set_state(PackCreation.cloning_name)
@@ -162,6 +223,7 @@ async def process_cloning_title(message: types.Message, state: FSMContext):
 
 @router.message(PackCreation.cloning_name, F.text)
 async def process_cloning_name(message: types.Message, state: FSMContext, bot: Bot):
+    if not message.text: return
     name_short = message.text.strip()
     if not re.match(r"^[a-zA-Z][a-zA-Z0-9_]*$", name_short):
         await message.reply(l10n.get_text(message.from_user.language_code, "err-invalid-name"))
@@ -228,6 +290,7 @@ async def run_cloning(user_id: int, bot: Bot, source_name: str, target_name: str
             reply_markup=get_open_pack_keyboard(locale, target_name)
         )
     except Exception as e:
+        logger.exception(f"Error during cloning: {e}")
         await bot.send_message(user_id, f"❌ Error during cloning: {html.quote(str(e))}")
 
 # --- New Interactive Copy Logic ---
@@ -403,14 +466,39 @@ async def add_item_to_pack(message: types.Message, pack_name: str, state: FSMCon
         await message.answer("❌ Pack not found in database.")
         return
 
-    proc_msg = None
-    if is_callback:
-        await message.edit_text(l10n.get_text(message.from_user.language_code, "msg-copying-one", format=target_format))
-    else:
-        proc_msg = await message.answer(l10n.get_text(message.from_user.language_code, "msg-copying-one", format=target_format))
-
     try:
+        # Check compatibility
+        source_type = "static"
+        if message.sticker:
+            if message.sticker.is_animated: source_type = "animated"
+            elif message.sticker.is_video: source_type = "video"
+        elif message.photo:
+            source_type = "static"
+        
+        # If target is video but source is static, or vice versa
+        is_video_pack = pack_info.set_type == "video" or target_format == "video"
+        is_anim_pack = pack_info.set_type == "animated" or target_format == "animated"
+        
+        if is_video_pack and source_type != "video":
+            await message.reply("❌ This is a video pack. Please send a video sticker.")
+            return
+        if is_anim_pack and source_type != "animated":
+            await message.reply("❌ This is an animated pack. Please send an animated sticker.")
+            return
+        if not is_video_pack and not is_anim_pack and source_type != "static":
+            # This is a static pack, but we received video/anim.
+            # We already have download_and_process handling this by returning raw data,
+            # but Telegram will reject it anyway. Better fail early.
+             await message.reply("❌ This is a static pack. Please send a static sticker or photo.")
+             return
+
         if file_id:
+            proc_msg = None
+            if is_callback:
+                await message.edit_text(l10n.get_text(message.from_user.language_code, "msg-copying-one", format=target_format))
+            else:
+                proc_msg = await message.answer(l10n.get_text(message.from_user.language_code, "msg-copying-one", format=target_format))
+
             # We use the selected format for processing, but the pack type for final storage
             file_data = await sticker_service.download_and_process(bot, file_id, target_format)
             
@@ -425,11 +513,12 @@ async def add_item_to_pack(message: types.Message, pack_name: str, state: FSMCon
             msg_text = l10n.get_text(message.from_user.language_code, "item-added", count=pack_info.sticker_count + 1)
             if is_callback:
                 await message.edit_text(msg_text)
-            else:
+            elif proc_msg:
                 await proc_msg.edit_text(msg_text)
         else:
              await message.answer("❌ Support for text-only items coming soon.")
     except Exception as e:
+        logger.exception(f"Error in add_item_to_pack: {e}")
         err_msg = l10n.get_text(message.from_user.language_code, "err-generic", error=html.quote(str(e)))
         if is_callback:
             await message.edit_text(err_msg)
@@ -477,7 +566,17 @@ async def activate_copy_mode(callback: types.CallbackQuery, state: FSMContext):
     pack_info = await sticker_repo.get_by_name(pack_name)
     
     await state.set_state(CopyMode.active)
-    await state.update_data(target_pack=pack_name)
+    
+    # Determine target format based on pack type
+    target_fmt = "regular"
+    if pack_info.set_type == "custom_emoji":
+        target_fmt = "custom_emoji"
+    elif pack_info.set_type == "animated":
+        target_fmt = "animated"
+    elif pack_info.set_type == "video":
+        target_fmt = "video"
+        
+    await state.update_data(target_pack=pack_name, target_format=target_fmt)
     
     await callback.message.edit_text(
         l10n.get_text(callback.from_user.language_code, "msg-copy-mode-on", title=pack_info.title),
