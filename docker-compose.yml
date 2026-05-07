@@ -6,7 +6,7 @@ services:
     env_file:
       - .env
     volumes:
-      - ./bot.db:/app/bot.db
+      - ./data:/app/data
     logging:
       driver: "json-file"
       options:
