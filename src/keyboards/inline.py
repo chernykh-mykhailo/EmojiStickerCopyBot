@@ -157,6 +157,10 @@ def get_pack_manage_keyboard(locale: str, name: str):
         callback_data=f"activate_mode:{name}",
     )
     builder.button(
+        text=l10n.get_text(locale, "btn-remove-from-list"),
+        callback_data=f"remove_pack:{name}",
+    )
+    builder.button(
         text=l10n.get_text(locale, "btn-back"), callback_data="sticker_my_packs"
     )
     builder.adjust(1)

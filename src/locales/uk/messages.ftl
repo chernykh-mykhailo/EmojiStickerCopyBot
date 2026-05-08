@@ -67,3 +67,5 @@ msg-copying-one = ⏳ Копіюю об'єкт у форматі <b>{$format}</b
 msg-pack-manage = 🛠 <b>Керування паком:</b> {$title}
     Що ти хочеш зробити?
 btn-copy-to-this = 📥 Додавати сюди
+btn-remove-from-list = 🗑 Прибрати зі списку
+msg-pack-removed = ✅ Пак успішно прибрано зі списку.

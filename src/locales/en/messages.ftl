@@ -30,3 +30,10 @@ create-success = ✅ Pack "{$title}" created successfully!
     Link: https://t.me/addstickers/{$name}
 wait-processing = ⏳ Please wait, processing {$count} more items...
 btn-done = ✅ Done
+btn-open-pack = 📂 Open Pack
+btn-back = 🔙 Back
+msg-pack-manage = 🛠 <b>Pack Management:</b> {$title}
+    What would you like to do?
+btn-copy-to-this = 📥 Add here
+btn-remove-from-list = 🗑 Remove from list
+msg-pack-removed = ✅ Pack successfully removed from the list.

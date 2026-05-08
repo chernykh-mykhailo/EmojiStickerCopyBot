@@ -234,7 +234,7 @@ async def process_item(message: types.Message, state: FSMContext, bot: Bot):
             target_format = "video"
 
         file_data = await sticker_service.download_and_process(
-            bot, file_id, target_format
+            bot, file_id, target_format, source_sticker=message.sticker
         )
 
         # Determine format for InputSticker
@@ -415,6 +415,7 @@ async def run_cloning(
             bot,
             first.file_id,
             target_format if needs_processing_first else "copy_only",
+            source_sticker=first,
         )
 
         # Determine format
@@ -439,7 +440,10 @@ async def run_cloning(
                 target_format == "emoji_nobg"
             )
             file_data = await sticker_service.download_and_process(
-                bot, s.file_id, target_format if needs_processing_rest else "copy_only"
+                bot,
+                s.file_id,
+                target_format if needs_processing_rest else "copy_only",
+                source_sticker=s,
             )
 
             input_sticker = sticker_service.create_input_sticker(
@@ -771,7 +775,7 @@ async def add_item_to_pack(
 
             # We use the selected format for processing, but the pack type for final storage
             file_data = await sticker_service.download_and_process(
-                bot, file_id, target_format
+                bot, file_id, target_format, source_sticker=message.sticker
             )
 
             # Detect format for InputSticker
@@ -929,6 +933,20 @@ async def finish_creation(callback: types.CallbackQuery, state: FSMContext, bot:
         ),
     )
     await state.clear()
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("remove_pack:"))
+async def remove_pack_from_list(callback: types.CallbackQuery, state: FSMContext):
+    pack_name = callback.data.split(":")[1]
+    pack_service = container.resolve(PackService)
+
+    await pack_service.delete_pack(pack_name)
+
+    await callback.message.edit_text(
+        l10n.get_text(callback.from_user.language_code, "msg-pack-removed"),
+        reply_markup=get_packs_keyboard(callback.from_user.language_code),
+    )
     await callback.answer()
 
 

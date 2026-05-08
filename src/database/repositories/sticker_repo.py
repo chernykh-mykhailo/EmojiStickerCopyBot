@@ -52,3 +52,12 @@ class StickerRepository:
             )
             result = await session.execute(stmt)
             return list(result.scalars().all())
+
+    async def delete(self, name: str):
+        async with self.db_helper.session() as session:
+            stmt = select(StickerSet).where(StickerSet.name == name)
+            result = await session.execute(stmt)
+            sticker_set = result.scalar_one_or_none()
+            if sticker_set:
+                await session.delete(sticker_set)
+                await session.commit()

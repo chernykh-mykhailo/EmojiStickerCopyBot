@@ -44,3 +44,6 @@ class PackService:
 
     async def get_sticker_set(self, name: str):
         return await self.bot.get_sticker_set(name)
+
+    async def delete_pack(self, name: str):
+        await self.sticker_repo.delete(name)
