@@ -99,7 +99,7 @@ async def process_suggested_title(callback: types.CallbackQuery, state: FSMConte
         await state.update_data(pack_title=title)
         slug = title.replace(" ", "")
         if re.match(r"^[a-zA-Z][a-zA-Z0-9_]*$", slug):
-            await finalize_pack_setup(callback.message, state, bot, slug, title)
+            await finalize_pack_setup(callback, state, bot, slug, title)
         else:
             await state.set_state(PackCreation.waiting_name)
             await callback.message.edit_text(l10n.get_text(callback.from_user.language_code, "prompt-name"))
@@ -107,7 +107,7 @@ async def process_suggested_title(callback: types.CallbackQuery, state: FSMConte
         await state.update_data(cloning_title=title)
         slug = title.replace(" ", "")
         if re.match(r"^[a-zA-Z][a-zA-Z0-9_]*$", slug):
-            await finalize_cloning_setup(callback.message, state, bot, slug, title)
+            await finalize_cloning_setup(callback, state, bot, slug, title)
         else:
             await state.set_state(PackCreation.cloning_name)
             await callback.message.edit_text(l10n.get_text(callback.from_user.language_code, "prompt-name"))
@@ -151,10 +151,14 @@ async def process_name(message: types.Message, state: FSMContext, bot: Bot):
 
 
 async def finalize_pack_setup(
-    message: types.Message, state: FSMContext, bot: Bot, name_short: str, title: str
+    event: types.Message | types.CallbackQuery,
+    state: FSMContext,
+    bot: Bot,
+    name_short: str,
+    title: str,
 ):
     data = await state.get_data()
-    sticker_type = data.get("sticker_type")
+    sticker_type = data.get("sticker_type", "regular")
 
     me = await bot.get_me()
     full_name_base = f"{name_short}_by_{me.username}"
@@ -163,8 +167,9 @@ async def finalize_pack_setup(
     await state.update_data(
         pack_name_short=name_short, full_name=full_name_base, full_title=full_title
     )
-
-    # Create pack with placeholder immediately
+    user = event.from_user
+    reply_to = event.message if isinstance(event, types.CallbackQuery) else event
+    
     pack_service = container.resolve(PackService)
     sticker_service = container.resolve(StickerService)
 
@@ -181,7 +186,7 @@ async def finalize_pack_setup(
         )
 
         await pack_service.create_new_set(
-            user_id=message.from_user.id,
+            user_id=user.id,
             name=full_name_base,
             title=full_title,
             stickers=[input_sticker],
@@ -191,16 +196,14 @@ async def finalize_pack_setup(
         await state.update_data(pack_created=True, placeholder_active=True)
         await state.set_state(PackCreation.adding_items)
 
-        await message.reply(
-            l10n.get_text(message.from_user.language_code, "prompt-media", title=title),
-            reply_markup=get_done_keyboard(message.from_user.language_code),
+        await reply_to.reply(
+            l10n.get_text(user.language_code, "prompt-media", title=title),
+            reply_markup=get_done_keyboard(user.language_code),
         )
     except Exception as e:
         logger.exception(f"Error creating pack with placeholder: {e}")
-        await message.reply(
-            l10n.get_text(
-                message.from_user.language_code, "err-generic", error=html.quote(str(e))
-            )
+        await reply_to.reply(
+            l10n.get_text(user.language_code, "err-generic", error=html.quote(str(e)))
         )
 
 
@@ -355,7 +358,11 @@ async def process_cloning_title(message: types.Message, state: FSMContext, bot: 
 
 
 async def finalize_cloning_setup(
-    message: types.Message, state: FSMContext, bot: Bot, name_short: str, title: str
+    event: types.Message | types.CallbackQuery,
+    state: FSMContext,
+    bot: Bot,
+    name_short: str,
+    title: str,
 ):
     data = await state.get_data()
     source_set_name = data.get("source_set_name")
@@ -365,21 +372,21 @@ async def finalize_cloning_setup(
     full_title = f"{title} by @{me.username}"
 
     target_format = data.get("target_format", "regular")
+    user = event.from_user
+    reply_to = event.message if isinstance(event, types.CallbackQuery) else event
 
-    progress_msg = await message.reply(
-        l10n.get_text(
-            message.from_user.language_code, "copy-started", title=title, name=full_name
-        )
+    progress_msg = await reply_to.reply(
+        l10n.get_text(user.language_code, "copy-started", title=title, name=full_name)
     )
 
     asyncio.create_task(
         run_cloning(
-            message.from_user.id,
+            user.id,
             bot,
             source_set_name,
             full_name,
             full_title,
-            message.from_user.language_code,
+            user.language_code,
             target_format,
             progress_msg.message_id,
         )
