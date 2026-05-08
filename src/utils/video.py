@@ -1,3 +1,4 @@
+# pyrefly: ignore [missing-import]
 import ffmpeg
 import tempfile
 import os
@@ -20,13 +21,23 @@ class VideoProcessor:
             # We use a complex filter to scale and pad to EXACTLY size x size while keeping aspect ratio
             # Then encode with vp9, no audio, and limit duration
             (
-                ffmpeg.input(in_path, t=duration)
+                ffmpeg.input(in_path)
                 .filter(
-                    "scale", f"w=min({size}\,{size}*iw/ih):h=min({size}\,{size}*ih/iw)"
+                    "scale",
+                    w=f"if(gt(iw,ih),{size},-2)",
+                    h=f"if(gt(iw,ih),-2,{size})",
                 )
-                .filter("pad", size, size, "(ow-iw)/2", "(oh-ih)/2", color="0x00000000")
+                .filter(
+                    "pad",
+                    w=size,
+                    h=size,
+                    x=f"({size}-iw)/2",
+                    y=f"({size}-ih)/2",
+                    color="black@0",
+                )
                 .output(
                     out_path,
+                    t=duration,
                     vcodec="libvpx-vp9",
                     pix_fmt="yuva420p",
                     crf=30,
