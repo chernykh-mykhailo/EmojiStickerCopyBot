@@ -337,7 +337,7 @@ async def finalize_cloning_setup(
 
     target_format = data.get("target_format", "regular")
 
-    await message.reply(
+    progress_msg = await message.reply(
         l10n.get_text(message.from_user.language_code, "copy-started", title=title)
     )
 
@@ -350,6 +350,7 @@ async def finalize_cloning_setup(
             full_title,
             message.from_user.language_code,
             target_format,
+            progress_msg.message_id,
         )
     )
     await state.clear()
@@ -379,6 +380,7 @@ async def run_cloning(
     target_title: str,
     locale: str,
     target_format: str = "regular",
+    progress_msg_id: int = None,
 ):
     pack_service = container.resolve(PackService)
     sticker_service = container.resolve(StickerService)
@@ -396,17 +398,23 @@ async def run_cloning(
             set_type = "video"
 
         # Determine if we need to process or just copy
-        # If formats match and it's not emoji conversion, we can skip PIL
+        # If formats match and it's not emoji conversion, we can skip processing
         source_type = "regular"
         if source_set.is_animated:
             source_type = "animated"
         elif source_set.is_video:
             source_type = "video"
 
-        # Force processing for the first sticker to ensure exact dimensions for set creation
+        needs_processing_first = (set_type != source_type) or (
+            target_format == "emoji_nobg"
+        )
+
+        # Force processing for the first sticker only if formats don't match
         first = source_set.stickers[0]
         file_data = await sticker_service.download_and_process(
-            bot, first.file_id, target_format
+            bot,
+            first.file_id,
+            target_format if needs_processing_first else "copy_only",
         )
 
         # Determine format
@@ -424,7 +432,8 @@ async def run_cloning(
             user_id, target_name, target_title, [input_sticker], set_type
         )
 
-        for s in source_set.stickers[1:]:
+        total = len(source_set.stickers)
+        for i, s in enumerate(source_set.stickers[1:], start=2):
             # For remaining stickers, we can use copy_only if formats match
             needs_processing_rest = (set_type != source_type) or (
                 target_format == "emoji_nobg"
@@ -437,6 +446,26 @@ async def run_cloning(
                 file_data, s.emoji or "😀", sticker_format
             )
             await pack_service.add_sticker(user_id, target_name, input_sticker)
+
+            # Update progress every 5 stickers or last one
+            if progress_msg_id and (i % 5 == 0 or i == total):
+                try:
+                    percent = int((i / total) * 100)
+                    await bot.edit_message_text(
+                        l10n.get_text(
+                            locale,
+                            "copy-progress",
+                            title=target_title,
+                            current=i,
+                            total=total,
+                            percent=percent,
+                        ),
+                        chat_id=user_id,
+                        message_id=progress_msg_id,
+                    )
+                except Exception:
+                    pass  # Ignore rate limits or message not changed
+
             await asyncio.sleep(0.4)
 
         await bot.send_message(

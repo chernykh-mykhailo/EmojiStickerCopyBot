@@ -37,7 +37,9 @@ class StickerService:
             else:
                 # Convert static image to a 3s static video (WEBM)
                 # Actually, Telegram allows static video stickers (1 frame webm)
-                return VideoProcessor.process_to_webm(file_data, size=size, duration=3)
+                return VideoProcessor.process_to_webm(
+                    file_data, size=size, duration=2.9
+                )
 
         # 2. Handle Target: ANIMATED (TGS)
         if target_format in ["animated", "custom_emoji_anim"]:

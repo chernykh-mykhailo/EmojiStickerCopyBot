@@ -9,7 +9,9 @@ logger = logging.getLogger(__name__)
 
 class VideoProcessor:
     @staticmethod
-    def process_to_webm(file_data: bytes, size: int = 512, duration: int = 3) -> bytes:
+    def process_to_webm(
+        file_data: bytes, size: int = 512, duration: float = 2.9
+    ) -> bytes:
         """Convert video/gif/media to Telegram-compatible WEBM sticker (VP9, max 3s, max size)"""
         with tempfile.NamedTemporaryFile(suffix=".input", delete=False) as in_file:
             in_file.write(file_data)
@@ -42,6 +44,8 @@ class VideoProcessor:
                     pix_fmt="yuva420p",
                     crf=30,
                     bitrate="256k",
+                    r=30,
+                    g=60,
                     an=None,
                     loglevel="error",
                 )
