@@ -32,10 +32,8 @@ err-generic = ❌ An error occurred: {$error}
 
 processing-item = ⏳ Processing...
 item-added = ✅ Item added! Total stickers: {$count}
-copy-started = ⏳ Cloning started for "{$title}"!
-    https://t.me/addstickers/{$name}
-copy-progress = ⏳ Cloning "{$title}": {$current}/{$total} ({$percent}%)
-    https://t.me/addstickers/{$name}
+copy-started = ⏳ Cloning started for "{$title}"! Link: https://t.me/addstickers/{$name}
+copy-progress = ⏳ Cloning "{$title}": {$current}/{$total} ({$percent}%) Link: https://t.me/addstickers/{$name}
 create-success = ✅ Pack "{$title}" created successfully!
     Link: https://t.me/addstickers/{$name}
 wait-processing = ⏳ Please wait, processing {$count} more items...
