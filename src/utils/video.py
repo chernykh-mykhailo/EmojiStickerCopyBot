@@ -43,7 +43,6 @@ class VideoProcessor:
                     crf=30,
                     bitrate="256k",
                     an=None,
-                    metadata="-title",
                     loglevel="error",
                 )
                 .overwrite_output()
