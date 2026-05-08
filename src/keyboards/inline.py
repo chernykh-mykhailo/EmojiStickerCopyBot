@@ -130,6 +130,10 @@ def get_clone_format_selection(locale: str, sticker_type: str = "static"):
             text=l10n.get_text(locale, "btn-fmt-emoji"),
             callback_data="clone_fmt:custom_emoji_anim",
         )
+        builder.button(
+            text=l10n.get_text(locale, "btn-fmt-emoji-nobg"),
+            callback_data="clone_fmt:emoji_nobg",
+        )
     elif sticker_type == "video":
         builder.button(
             text=l10n.get_text(locale, "btn-fmt-original"),
@@ -138,6 +142,10 @@ def get_clone_format_selection(locale: str, sticker_type: str = "static"):
         builder.button(
             text=l10n.get_text(locale, "btn-fmt-emoji"),
             callback_data="clone_fmt:custom_emoji_video",
+        )
+        builder.button(
+            text=l10n.get_text(locale, "btn-fmt-emoji-nobg"),
+            callback_data="clone_fmt:emoji_nobg",
         )
 
     builder.button(text=l10n.get_text(locale, "btn-back"), callback_data="copy_back")

@@ -10,7 +10,12 @@ logger = logging.getLogger(__name__)
 class StickerService:
     @staticmethod
     async def download_and_process(
-        bot: Bot, file_id: str, target_format: str, source_sticker: any = None
+        bot: Bot,
+        file_id: str,
+        target_format: str,
+        source_sticker: any = None,
+        source_type: str = None,
+        is_source_emoji: bool = None,
     ) -> tuple[bytes | str, str]:
         """Download file and convert/resize it based on target pack type"""
         # Determine base format from target
@@ -24,18 +29,27 @@ class StickerService:
             return file_id, res_format
 
         # Fast path: if it's a sticker and matches target format perfectly
-        if source_sticker and target_format != "emoji_nobg":
-            source_type = "regular"
-            if source_sticker.is_animated:
-                source_type = "animated"
-            elif source_sticker.is_video:
-                source_type = "video"
+        if target_format != "emoji_nobg":
+            if source_sticker:
+                source_type = "regular"
+                if source_sticker.is_animated:
+                    source_type = "animated"
+                elif source_sticker.is_video:
+                    source_type = "video"
+                is_source_emoji = source_sticker.type == "custom_emoji"
 
-            is_target_emoji = "emoji" in target_format
-            is_source_emoji = source_sticker.type == "custom_emoji"
-
-            if source_type in target_format and is_target_emoji == is_source_emoji:
-                return file_id, source_type
+            if source_type and is_source_emoji is not None:
+                is_target_emoji = "emoji" in target_format
+                # Check if types match (static vs animated vs video)
+                type_matches = (source_type == "regular" and target_format == "regular") or \
+                               (source_type == "animated" and "anim" in target_format) or \
+                               (source_type == "video" and "video" in target_format) or \
+                               (source_type == "regular" and target_format == "custom_emoji")
+                
+                # For emojis, we still might need to resize if it's a regular sticker (512 -> 100)
+                # So only fast-path if it's ALREADY an emoji or it's a regular-to-regular copy
+                if type_matches and is_target_emoji == is_source_emoji:
+                    return file_id, source_type
 
         file = await bot.get_file(file_id)
         down_file = await bot.download_file(file.file_path)

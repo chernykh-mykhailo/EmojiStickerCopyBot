@@ -58,17 +58,21 @@ class CopyMode(StatesGroup):
 
 @router.message(Command("packs"))
 async def cmd_packs(message: types.Message):
-    user_service = container.resolve(UserService)
-    user = await user_service.get_or_create_user(
-        message.from_user.id,
-        message.from_user.username,
-        message.from_user.full_name,
-        message.from_user.language_code or "uk",
-    )
-    await message.answer(
-        l10n.get_text(user.language_code, "packs-menu"),
-        reply_markup=get_packs_keyboard(user.language_code),
-    )
+    try:
+        user_service = container.resolve(UserService)
+        user = await user_service.get_or_create_user(
+            message.from_user.id,
+            message.from_user.username,
+            message.from_user.full_name,
+            message.from_user.language_code or "uk",
+        )
+        await message.answer(
+            l10n.get_text(user.language_code, "msg-my-packs"),
+            reply_markup=get_packs_keyboard(user.language_code),
+        )
+    except Exception as e:
+        logger.exception(f"Error in /packs command: {e}")
+        await message.answer(f"❌ Помилка: {e}")
 
 
 @router.callback_query(F.data.startswith("sticker_type:"))
@@ -648,6 +652,7 @@ async def handle_incoming_media(message: types.Message, state: FSMContext, bot: 
         file_id = message.sticker.file_id
         emoji = message.sticker.emoji or "😀"
         set_name = message.sticker.set_name
+        is_source_emoji = message.sticker.type == "custom_emoji"
         if message.sticker.is_animated:
             sticker_type = "animated"
         elif message.sticker.is_video:
@@ -676,6 +681,7 @@ async def handle_incoming_media(message: types.Message, state: FSMContext, bot: 
         pending_emoji=emoji,
         pending_set_name=set_name,
         pending_sticker_type=sticker_type,
+        pending_is_emoji=is_source_emoji if message.sticker else False,
     )
 
     await message.reply(
@@ -766,21 +772,24 @@ async def process_clone_format(
         source_type = "video"
 
     # Map 'custom_emoji' to specific type if needed
+    target_fmt = fmt
     if fmt == "custom_emoji":
         if source_type == "animated":
-            fmt = "custom_emoji_anim"
+            target_fmt = "custom_emoji_anim"
         elif source_type == "video":
-            fmt = "custom_emoji_video"
+            target_fmt = "custom_emoji_video"
 
     # Generate quick name
     suggestions = await get_unique_suggestions(1)
     title = suggestions[0]
     if "emoji" in fmt:
         title = f"{title} (Emoji)"
-    slug = title.replace(" ", "")
+
+    # CLEAN SLUG: only alphanumeric and underscores allowed
+    slug = re.sub(r"[^a-zA-Z0-9_]", "", title)
 
     await state.update_data(source_set_name=set_name)
-    await finalize_cloning_setup(callback, state, bot, slug, title, fmt)
+    await finalize_cloning_setup(callback, state, bot, slug, title, target_fmt)
     await callback.answer()
 
 
@@ -980,7 +989,12 @@ async def add_item_to_pack(
 
             # We use the selected format for processing, but the pack type for final storage
             file_data, sticker_format = await sticker_service.download_and_process(
-                bot, file_id, target_format, source_sticker=message.sticker
+                bot,
+                file_id,
+                target_format,
+                source_sticker=message.sticker if not is_callback else None,
+                source_type=data.get("pending_sticker_type"),
+                is_source_emoji=data.get("pending_is_emoji"),
             )
 
             input_sticker = sticker_service.create_input_sticker(
