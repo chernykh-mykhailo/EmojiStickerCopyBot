@@ -49,12 +49,8 @@ def get_copy_menu(locale: str, has_pack: bool = True):
     builder.button(
         text=l10n.get_text(locale, "btn-copy-one"), callback_data="copy_step:format"
     )
-    if has_pack:
-        builder.button(
-            text=l10n.get_text(locale, "btn-clone-all"), callback_data="copy_step:quick_clone"
-        )
     builder.button(
-        text=l10n.get_text(locale, "btn-quick-create"), callback_data="copy_step:quick_create"
+        text=l10n.get_text(locale, "btn-clone-all"), callback_data="copy_step:clone"
     )
     builder.button(
         text=l10n.get_text(locale, "btn-cancel"), callback_data="sticker_cancel"

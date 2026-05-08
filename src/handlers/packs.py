@@ -632,24 +632,33 @@ async def process_copy_step(callback: types.CallbackQuery, state: FSMContext, bo
                 callback.from_user.language_code, sticker_type
             ),
         )
-    elif step in ["quick_create", "quick_clone"]:
-        # Generate unique name and start cloning immediately
-        suggestions = await get_unique_suggestions(1)
-        title = suggestions[0]
-        slug = title.replace(" ", "")
-        
-        if step == "quick_create":
-            # Just this one sticker
-            await finalize_pack_setup(callback, state, bot, slug, title)
-        else:
-            # Full pack
-            set_name = data.get("pending_set_name")
-            if not set_name:
-                await callback.answer("❌ This sticker doesn't belong to a pack.", show_alert=True)
-                return
-            await state.update_data(source_set_name=set_name)
-            await finalize_cloning_setup(callback, state, bot, slug, title)
-        
+    elif step == "clone":
+        # Check if it was a sticker to clone from
+        file_id = data.get("pending_file_id")
+        if not file_id:
+            await callback.answer("❌ Can only clone from stickers.", show_alert=True)
+            return
+
+        # Need to find set name
+        # Wait, get_file doesn't give set name. We need to use the message's sticker info if available.
+        # But we saved file_id. Let's assume we have the set name if it was a sticker message.
+        # In handle_incoming_media we can save the set_name.
+        set_name = data.get("pending_set_name")
+        if not set_name:
+            await callback.answer(
+                "❌ This sticker doesn't belong to a pack.", show_alert=True
+            )
+            return
+
+        await state.update_data(source_set_name=set_name, cloning_mode=True)
+        await state.set_state(PackCreation.cloning_title)
+        suggestions = await get_unique_suggestions()
+        await callback.message.edit_text(
+            l10n.get_text(callback.from_user.language_code, "prompt-title"),
+            reply_markup=get_title_suggestions_keyboard(
+                callback.from_user.language_code, suggestions
+            ),
+        )
     await callback.answer()
 
 
