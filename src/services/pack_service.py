@@ -57,8 +57,10 @@ class PackService:
                     )
                     await asyncio.sleep(wait_time)
                     continue
-                
-                logger.error(f"Failed to add sticker to {name} after {attempt + 1} attempts: {e}")
+
+                logger.error(
+                    f"Failed to add sticker to {name} after {attempt + 1} attempts: {e}"
+                )
                 raise
 
     async def get_sticker_set(self, name: str):

@@ -51,13 +51,12 @@ def get_copy_menu(locale: str, has_pack: bool = True):
     )
     if has_pack:
         builder.button(
-            text=l10n.get_text(locale, "btn-clone-all"), callback_data="copy_step:quick_clone"
-        )
-        builder.button(
-            text=l10n.get_text(locale, "btn-clone-emoji"), callback_data="copy_step:quick_clone_emoji"
+            text=l10n.get_text(locale, "btn-clone-all"),
+            callback_data="copy_step:clone_format",
         )
     builder.button(
-        text=l10n.get_text(locale, "btn-quick-create"), callback_data="copy_step:quick_create"
+        text=l10n.get_text(locale, "btn-quick-create"),
+        callback_data="copy_step:quick_create",
     )
     builder.button(
         text=l10n.get_text(locale, "btn-cancel"), callback_data="sticker_cancel"
@@ -106,6 +105,46 @@ def get_format_selection(locale: str, sticker_type: str = "static"):
     return builder.as_markup()
 
 
+def get_clone_format_selection(locale: str, sticker_type: str = "static"):
+    builder = InlineKeyboardBuilder()
+
+    if sticker_type == "static":
+        builder.button(
+            text=l10n.get_text(locale, "btn-fmt-original"),
+            callback_data="clone_fmt:regular",
+        )
+        builder.button(
+            text=l10n.get_text(locale, "btn-fmt-emoji"),
+            callback_data="clone_fmt:custom_emoji",
+        )
+        builder.button(
+            text=l10n.get_text(locale, "btn-fmt-emoji-nobg"),
+            callback_data="clone_fmt:emoji_nobg",
+        )
+    elif sticker_type == "animated":
+        builder.button(
+            text=l10n.get_text(locale, "btn-fmt-original"),
+            callback_data="clone_fmt:animated",
+        )
+        builder.button(
+            text=l10n.get_text(locale, "btn-fmt-emoji"),
+            callback_data="clone_fmt:custom_emoji_anim",
+        )
+    elif sticker_type == "video":
+        builder.button(
+            text=l10n.get_text(locale, "btn-fmt-original"),
+            callback_data="clone_fmt:video",
+        )
+        builder.button(
+            text=l10n.get_text(locale, "btn-fmt-emoji"),
+            callback_data="clone_fmt:custom_emoji_video",
+        )
+
+    builder.button(text=l10n.get_text(locale, "btn-back"), callback_data="copy_back")
+    builder.adjust(1)
+    return builder.as_markup()
+
+
 def get_first_pack_keyboard(locale: str):
     builder = InlineKeyboardBuilder()
     builder.button(
@@ -129,7 +168,8 @@ def get_user_packs_keyboard(packs: list, locale: str, prefix: str = "target_pack
         builder.button(text=pack.title, callback_data=f"{prefix}:{pack.name}")
 
     builder.button(
-        text=l10n.get_text(locale, "btn-create-new"), callback_data="create_new_from_copy"
+        text=l10n.get_text(locale, "btn-create-new"),
+        callback_data="create_new_from_copy",
     )
 
     builder.button(text=l10n.get_text(locale, "btn-back"), callback_data="copy_back")

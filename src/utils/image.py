@@ -21,7 +21,17 @@ class ImageProcessor:
 
         out = io.BytesIO()
         # Telegram likes WebP for stickers/emojis now
-        new_img.save(out, format="WEBP", lossless=True)
+        # For emojis, we MUST stay under 64KB.
+        if size <= 100:
+            quality = 95
+            new_img.save(out, format="WEBP", quality=quality, lossy=True)
+            while out.tell() > 64000 and quality > 10:
+                quality -= 10
+                out = io.BytesIO()
+                new_img.save(out, format="WEBP", quality=quality, lossy=True)
+        else:
+            new_img.save(out, format="WEBP", lossless=True)
+
         return out.getvalue()
 
     @staticmethod

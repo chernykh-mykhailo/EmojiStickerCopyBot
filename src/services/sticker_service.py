@@ -48,11 +48,12 @@ class StickerService:
         is_source_anim = file.file_path.endswith(".tgs")
 
         # 1. Handle Target: VIDEO
-        if target_format in ["video", "custom_emoji_video"]:
+        if "video" in target_format:
             size = 100 if "emoji" in target_format else 512
             if is_source_video:
                 return VideoProcessor.process_to_webm(file_data, size=size), "video"
             elif is_source_anim:
+                # Can't easily convert TGS to video here
                 return file_data, "animated"
             else:
                 return (
@@ -61,26 +62,37 @@ class StickerService:
                 )
 
         # 2. Handle Target: ANIMATED (TGS)
-        if target_format in ["animated", "custom_emoji_anim"]:
+        if "anim" in target_format:
             if is_source_anim:
+                # Check size for emojis
+                if "emoji" in target_format and len(file_data) > 64000:
+                    # Too big for emoji, fallback to static if we could, but TGS is hard
+                    # For now, return as is and let it fail or be skipped
+                    return file_data, "animated"
                 return file_data, "animated"
             else:
-                # If we have a video but want animated emoji, we MUST use video format
-                # unless we want a static frame.
+                # Can't convert static/video to TGS
                 return file_data, "video" if is_source_video else "static"
 
         # 3. Handle Target: STATIC (Regular or Emoji)
-        if target_format in ["regular", "copy", "custom_emoji", "emoji_nobg"]:
-            if is_source_video or is_source_anim:
-                file_data = VideoProcessor.extract_frame(file_data)
-                return file_data, "static"
+        is_target_emoji = "emoji" in target_format
+        if is_source_video or is_source_anim:
+            # Try to extract frame
+            try:
+                frame_data = VideoProcessor.extract_frame(file_data)
+                if is_target_emoji:
+                    return ImageProcessor.prepare_emoji(frame_data), "static"
+                return ImageProcessor.prepare_regular(frame_data), "static"
+            except Exception:
+                # Fallback to raw if extraction fails (TGS)
+                return file_data, "animated" if is_source_anim else "video"
 
-            if target_format in ["regular", "copy"]:
-                return ImageProcessor.prepare_regular(file_data), "static"
-            elif target_format == "custom_emoji":
-                return ImageProcessor.prepare_emoji(file_data), "static"
-            elif target_format == "emoji_nobg":
+        if target_format in ["regular", "copy"]:
+            return ImageProcessor.prepare_regular(file_data), "static"
+        elif "emoji" in target_format:
+            if target_format == "emoji_nobg":
                 return ImageProcessor.prepare_emoji_nobg(file_data), "static"
+            return ImageProcessor.prepare_emoji(file_data), "static"
 
         return file_data, "static"
 
