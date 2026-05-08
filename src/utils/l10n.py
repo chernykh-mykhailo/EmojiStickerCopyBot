@@ -30,8 +30,11 @@ class LocalizationManager:
         if not bundle:
             return message_id
 
-        message = bundle.get_message(message_id)
-        if not message or not message.value:
+        try:
+            message = bundle.get_message(message_id)
+            if not message or not message.value:
+                return message_id
+        except Exception:
             return message_id
 
         result, errors = bundle.format_pattern(message.value, kwargs)

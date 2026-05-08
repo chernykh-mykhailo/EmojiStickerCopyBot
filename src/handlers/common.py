@@ -17,5 +17,5 @@ async def cmd_start(message: types.Message):
         language_code=message.from_user.language_code or "uk",
     )
 
-    welcome_text = l10n.get_text(user.language_code, "start-welcome")
-    await message.answer(welcome_text)
+    welcome_text = l10n.get_text(user.language_code, "msg-start")
+    await message.answer(welcome_text, parse_mode="HTML")
