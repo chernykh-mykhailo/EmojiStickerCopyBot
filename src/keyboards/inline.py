@@ -5,6 +5,22 @@ from utils.l10n import l10n
 def get_packs_keyboard(locale: str):
     builder = InlineKeyboardBuilder()
     builder.button(
+        text=l10n.get_text(locale, "btn-my-packs"), callback_data="sticker_my_packs"
+    )
+    builder.button(
+        text=l10n.get_text(locale, "btn-create-new"),
+        callback_data="sticker_create_menu",
+    )
+    builder.button(
+        text=l10n.get_text(locale, "btn-clone-pack"), callback_data="sticker_type:clone"
+    )
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+def get_create_keyboard(locale: str):
+    builder = InlineKeyboardBuilder()
+    builder.button(
         text=l10n.get_text(locale, "btn-create-regular"),
         callback_data="sticker_type:regular",
     )
@@ -20,12 +36,7 @@ def get_packs_keyboard(locale: str):
         text=l10n.get_text(locale, "btn-create-video"),
         callback_data="sticker_type:video",
     )
-    builder.button(
-        text=l10n.get_text(locale, "btn-clone-pack"), callback_data="sticker_type:clone"
-    )
-    builder.button(
-        text=l10n.get_text(locale, "btn-my-packs"), callback_data="sticker_my_packs"
-    )
+    builder.button(text=l10n.get_text(locale, "btn-back"), callback_data="packs-menu")
     builder.adjust(2)
     return builder.as_markup()
 
@@ -90,6 +101,10 @@ def get_format_selection(locale: str, sticker_type: str = "static"):
             text=l10n.get_text(locale, "btn-fmt-emoji"),
             callback_data="copy_fmt:custom_emoji_anim",
         )
+        builder.button(
+            text=l10n.get_text(locale, "btn-fmt-emoji-nobg"),
+            callback_data="copy_fmt:emoji_nobg",
+        )
     elif sticker_type == "video":
         builder.button(
             text=l10n.get_text(locale, "btn-fmt-original"),
@@ -98,6 +113,10 @@ def get_format_selection(locale: str, sticker_type: str = "static"):
         builder.button(
             text=l10n.get_text(locale, "btn-fmt-emoji"),
             callback_data="copy_fmt:custom_emoji_video",
+        )
+        builder.button(
+            text=l10n.get_text(locale, "btn-fmt-emoji-nobg"),
+            callback_data="copy_fmt:emoji_nobg",
         )
 
     builder.button(text=l10n.get_text(locale, "btn-back"), callback_data="copy_back")

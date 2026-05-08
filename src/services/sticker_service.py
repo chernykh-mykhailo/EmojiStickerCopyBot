@@ -41,11 +41,13 @@ class StickerService:
             if source_type and is_source_emoji is not None:
                 is_target_emoji = "emoji" in target_format
                 # Check if types match (static vs animated vs video)
-                type_matches = (source_type == "regular" and target_format == "regular") or \
-                               (source_type == "animated" and "anim" in target_format) or \
-                               (source_type == "video" and "video" in target_format) or \
-                               (source_type == "regular" and target_format == "custom_emoji")
-                
+                type_matches = (
+                    (source_type == "regular" and target_format == "regular")
+                    or (source_type == "animated" and "anim" in target_format)
+                    or (source_type == "video" and "video" in target_format)
+                    or (source_type == "regular" and target_format == "custom_emoji")
+                )
+
                 # For emojis, we still might need to resize if it's a regular sticker (512 -> 100)
                 # So only fast-path if it's ALREADY an emoji or it's a regular-to-regular copy
                 if type_matches and is_target_emoji == is_source_emoji:

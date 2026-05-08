@@ -25,6 +25,7 @@ from keyboards.inline import (
     get_open_pack_keyboard,
     get_pack_manage_keyboard,
     get_title_suggestions_keyboard,
+    get_create_keyboard,
 )
 from utils.name_generator import NameGenerator
 
@@ -784,7 +785,9 @@ async def process_clone_format(
         else:
             source_type = "static"
     except Exception as e:
-        logger.warning(f"Could not get sticker set {set_name}: {e}. Using pending_sticker_type.")
+        logger.warning(
+            f"Could not get sticker set {set_name}: {e}. Using pending_sticker_type."
+        )
         # source_type remains from state fallback
 
     # Map 'custom_emoji' to specific type if needed
@@ -1040,23 +1043,20 @@ async def add_item_to_pack(
             await proc_msg.edit_text(err_msg)
 
 
-@router.callback_query(F.data == "sticker_my_packs")
-async def show_my_packs_for_mode(callback: types.CallbackQuery, state: FSMContext):
-    sticker_repo = container.resolve(StickerRepository)
-    packs = await sticker_repo.get_by_creator(callback.from_user.id)
-
-    if not packs:
-        await callback.message.edit_text(
-            l10n.get_text(callback.from_user.language_code, "msg-no-packs-create"),
-            reply_markup=get_first_pack_keyboard(callback.from_user.language_code),
-        )
-        return
-
+@router.callback_query(F.data == "sticker_create_menu")
+async def handle_create_menu(callback: types.CallbackQuery):
     await callback.message.edit_text(
-        l10n.get_text(callback.from_user.language_code, "btn-my-packs"),
-        reply_markup=get_user_packs_keyboard(
-            packs, callback.from_user.language_code, prefix="pack_details"
-        ),
+        l10n.get_text(callback.from_user.language_code, "msg-select-type"),
+        reply_markup=get_create_keyboard(callback.from_user.language_code),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "packs-menu")
+async def handle_packs_menu(callback: types.CallbackQuery):
+    await callback.message.edit_text(
+        l10n.get_text(callback.from_user.language_code, "msg-my-packs"),
+        reply_markup=get_packs_keyboard(callback.from_user.language_code),
     )
     await callback.answer()
 
@@ -1187,4 +1187,25 @@ async def remove_pack_from_list(callback: types.CallbackQuery, state: FSMContext
 async def cancel_creation(callback: types.CallbackQuery, state: FSMContext):
     await state.clear()
     await callback.message.delete()
+    await callback.answer()
+
+
+@router.callback_query(F.data == "sticker_my_packs")
+async def show_my_packs_for_mode(callback: types.CallbackQuery, state: FSMContext):
+    sticker_repo = container.resolve(StickerRepository)
+    packs = await sticker_repo.get_by_creator(callback.from_user.id)
+
+    if not packs:
+        await callback.message.edit_text(
+            l10n.get_text(callback.from_user.language_code, "msg-no-packs-create"),
+            reply_markup=get_first_pack_keyboard(callback.from_user.language_code),
+        )
+        return
+
+    await callback.message.edit_text(
+        l10n.get_text(callback.from_user.language_code, "btn-my-packs"),
+        reply_markup=get_user_packs_keyboard(
+            packs, callback.from_user.language_code, prefix="pack_details"
+        ),
+    )
     await callback.answer()
