@@ -319,7 +319,7 @@ async def process_cloning_source(message: types.Message, state: FSMContext, bot:
             sticker_set_name = text
 
     if not sticker_set_name:
-        await message.reply("❌ Please send a sticker or a valid pack name.")
+        await message.reply("❌ Please send a sticker or a valid pack name.", parse_mode="HTML")
         return
 
     try:
@@ -339,10 +339,11 @@ async def process_cloning_source(message: types.Message, state: FSMContext, bot:
             reply_markup=get_title_suggestions_keyboard(
                 message.from_user.language_code, suggestions[:4]
             ),
+            parse_mode="HTML"
         )
     except Exception as e:
         await message.reply(
-            l10n.get_text(message.from_user.language_code, "err-generic", error=str(e))
+            l10n.get_text(message.from_user.language_code, "err-generic", error=str(e)), parse_mode="HTML"
         )
 
 
@@ -362,7 +363,7 @@ async def process_cloning_title(message: types.Message, state: FSMContext, bot: 
         # Title is not good for link, ask for one
         await state.set_state(PackCreation.cloning_name)
         await message.reply(
-            l10n.get_text(message.from_user.language_code, "prompt-name")
+            l10n.get_text(message.from_user.language_code, "prompt-name"), parse_mode="HTML"
         )
 
 
@@ -387,6 +388,7 @@ async def finalize_cloning_setup(
     progress_msg = await reply_to.reply(
         l10n.get_text(user.language_code, "copy-started", title=title, name=full_name),
         reply_markup=get_open_pack_keyboard(user.language_code, full_name),
+        parse_mode="HTML"
     )
 
     asyncio.create_task(
@@ -411,7 +413,7 @@ async def process_cloning_name(message: types.Message, state: FSMContext, bot: B
     name_short = message.text.strip()
     if not re.match(r"^[a-zA-Z][a-zA-Z0-9_]*$", name_short):
         await message.reply(
-            l10n.get_text(message.from_user.language_code, "err-invalid-name")
+            l10n.get_text(message.from_user.language_code, "err-invalid-name"), parse_mode="HTML"
         )
         return
 
@@ -497,20 +499,21 @@ async def run_cloning(
             # Update progress every 5 stickers or last one
             if progress_msg_id and (i % 5 == 0 or i == total):
                 try:
-                    percent = int((i / total) * 100)
+                    text = l10n.get_text(
+                        locale,
+                        "copy-progress",
+                        title=target_title,
+                        name=target_name,
+                        current=i,
+                        total=total,
+                        percent=int((i / total) * 100),
+                    )
                     await bot.edit_message_text(
-                        l10n.get_text(
-                            locale,
-                            "copy-progress",
-                            title=target_title,
-                            name=target_name,
-                            current=i,
-                            total=total,
-                            percent=percent,
-                        ),
+                        text,
                         chat_id=user_id,
                         message_id=progress_msg_id,
                         reply_markup=get_open_pack_keyboard(locale, target_name),
+                        parse_mode="HTML"
                     )
                 except Exception:
                     pass  # Ignore rate limits or message not changed
