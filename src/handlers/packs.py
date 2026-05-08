@@ -673,8 +673,18 @@ async def handle_incoming_media(message: types.Message, state: FSMContext, bot: 
             sticker_type = "video"
         file_id = message.document.file_id
         emoji = "📄"
-    elif is_emoji:
-        emoji = message.text
+    elif message.text:
+        # Check for sticker pack links
+        pack_match = re.search(r"t\.me/addstickers/([a-zA-Z0-9_]+)", message.text)
+        if pack_match:
+            set_name = pack_match.group(1)
+            # We don't know the type yet, will fetch on clone
+            sticker_type = "static"
+            file_id = "link"
+        elif is_emoji:
+            emoji = message.text
+        else:
+            return  # Not an emoji or link
 
     await state.update_data(
         pending_file_id=file_id,
@@ -764,12 +774,18 @@ async def process_clone_format(
         return
 
     # Get source pack info to detect type
-    source_set = await bot.get_sticker_set(set_name)
-    source_type = "static"
-    if source_set.is_animated:
-        source_type = "animated"
-    elif source_set.is_video:
-        source_type = "video"
+    source_type = data.get("pending_sticker_type", "static")
+    try:
+        source_set = await bot.get_sticker_set(set_name)
+        if source_set.is_animated:
+            source_type = "animated"
+        elif source_set.is_video:
+            source_type = "video"
+        else:
+            source_type = "static"
+    except Exception as e:
+        logger.warning(f"Could not get sticker set {set_name}: {e}. Using pending_sticker_type.")
+        # source_type remains from state fallback
 
     # Map 'custom_emoji' to specific type if needed
     target_fmt = fmt

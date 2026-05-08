@@ -94,6 +94,8 @@ class StickerService:
             # Try to extract frame
             try:
                 frame_data = VideoProcessor.extract_frame(file_data)
+                if target_format == "emoji_nobg":
+                    return ImageProcessor.prepare_emoji_nobg(frame_data), "static"
                 if is_target_emoji:
                     return ImageProcessor.prepare_emoji(frame_data), "static"
                 return ImageProcessor.prepare_regular(frame_data), "static"
