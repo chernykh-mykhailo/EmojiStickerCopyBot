@@ -1,6 +1,13 @@
-start-welcome = Welcome to <b>EmojiStickerCopyBot</b>!
-    I can help you clone and manage sticker packs.
-    Use /packs to see available options.
+start-welcome = 👋 <b>Welcome to EmojiStickerCopyBot!</b>
+    
+    I will help you clone stickers and create your own packs with ease.
+    
+    🚀 <b>How to start?</b>
+    • Send me any <b>sticker</b>
+    • Send a <b>link</b> to a sticker pack
+    • Or use /packs for full management
+    
+    Your ultimate tool for sticker magic! ✨
 
 packs-menu = 🏷 <b>Sticker Pack Management</b>
     Choose what you want to do:

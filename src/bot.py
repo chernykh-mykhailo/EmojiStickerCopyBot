@@ -11,11 +11,15 @@ from core.di import container
 from database.connection import DatabaseHelper
 from database.models import Base
 from handlers import common, packs
+from utils.commands import set_commands
 
 
 async def main():
     setup_logger()
     logger = logging.getLogger(__name__)
+
+    # Set commands
+    await set_commands(bot)
 
     # Initialize database
     db_helper = container.resolve(DatabaseHelper)
