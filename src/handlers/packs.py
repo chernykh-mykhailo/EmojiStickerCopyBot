@@ -233,16 +233,9 @@ async def process_item(message: types.Message, state: FSMContext, bot: Bot):
         elif sticker_type == "video":
             target_format = "video"
 
-        file_data = await sticker_service.download_and_process(
+        file_data, sticker_format = await sticker_service.download_and_process(
             bot, file_id, target_format, source_sticker=message.sticker
         )
-
-        # Determine format for InputSticker
-        sticker_format = "static"
-        if sticker_type == "animated":
-            sticker_format = "animated"
-        elif sticker_type == "video":
-            sticker_format = "video"
 
         input_sticker = sticker_service.create_input_sticker(
             file_data, emoji, sticker_format
@@ -411,20 +404,12 @@ async def run_cloning(
 
         # Force processing for the first sticker only if formats don't match
         first = source_set.stickers[0]
-        file_data = await sticker_service.download_and_process(
+        file_data, sticker_format = await sticker_service.download_and_process(
             bot,
             first.file_id,
             target_format if needs_processing_first else "copy_only",
             source_sticker=first,
         )
-
-        # Determine format
-        if "anim" in target_format or source_type == "animated":
-            sticker_format = "animated"
-        elif "video" in target_format or source_type == "video":
-            sticker_format = "video"
-        else:
-            sticker_format = "static"
 
         input_sticker = sticker_service.create_input_sticker(
             file_data, first.emoji or "😀", sticker_format
@@ -439,7 +424,7 @@ async def run_cloning(
             needs_processing_rest = (set_type != source_type) or (
                 target_format == "emoji_nobg"
             )
-            file_data = await sticker_service.download_and_process(
+            file_data, sticker_format = await sticker_service.download_and_process(
                 bot,
                 s.file_id,
                 target_format if needs_processing_rest else "copy_only",
@@ -774,16 +759,9 @@ async def add_item_to_pack(
                 )
 
             # We use the selected format for processing, but the pack type for final storage
-            file_data = await sticker_service.download_and_process(
+            file_data, sticker_format = await sticker_service.download_and_process(
                 bot, file_id, target_format, source_sticker=message.sticker
             )
-
-            # Detect format for InputSticker
-            sticker_format = "static"
-            if target_format in ["animated", "custom_emoji_anim"]:
-                sticker_format = "animated"
-            elif target_format in ["video", "custom_emoji_video"]:
-                sticker_format = "video"
 
             input_sticker = sticker_service.create_input_sticker(
                 file_data, emoji, sticker_format

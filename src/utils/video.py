@@ -19,6 +19,11 @@ class VideoProcessor:
 
         out_path = in_path + ".webm"
 
+        # Determine bitrate based on size (emojis are 100x100 and have 64KB limit)
+        # 64KB = 512Kb. Over 3 seconds = ~170Kbps. Use 128k to be safe.
+        bitrate = "128k" if size <= 128 else "256k"
+        crf = 35 if size <= 128 else 30
+
         try:
             # We use a complex filter to scale and pad to EXACTLY size x size while keeping aspect ratio
             # Then encode with vp9, no audio, and limit duration
@@ -42,8 +47,8 @@ class VideoProcessor:
                     t=duration,
                     vcodec="libvpx-vp9",
                     pix_fmt="yuva420p",
-                    crf=30,
-                    bitrate="256k",
+                    crf=crf,
+                    bitrate=bitrate,
                     r=30,
                     g=60,
                     an=None,
