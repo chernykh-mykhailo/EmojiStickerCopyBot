@@ -25,10 +25,19 @@ from keyboards.inline import (
     get_pack_manage_keyboard,
     get_title_suggestions_keyboard,
 )
-from utils.name_generator import generate_suggestions
+from utils.name_generator import NameGenerator
 
 router = Router()
 logger = logging.getLogger(__name__)
+
+
+async def get_unique_suggestions(count: int = 4) -> list[str]:
+    sticker_repo = container.resolve(StickerRepository)
+    # Get last 100 pack titles to avoid them in suggestions
+    # This covers most recent creations across all users
+    recent_packs = await sticker_repo.get_recent_packs(limit=100)
+    exclude_titles = [p.title.split(" by @")[0] for p in recent_packs]
+    return NameGenerator.get_random_suggestions(count, exclude_titles=exclude_titles)
 
 
 class PackCreation(StatesGroup):
@@ -82,7 +91,7 @@ async def select_type(callback: types.CallbackQuery, state: FSMContext):
         )
     else:
         await state.set_state(PackCreation.waiting_title)
-        suggestions = generate_suggestions()
+        suggestions = await get_unique_suggestions()
         await callback.message.edit_text(
             l10n.get_text(user.language_code, "prompt-title"),
             reply_markup=get_title_suggestions_keyboard(user.language_code, suggestions),
@@ -320,7 +329,7 @@ async def process_cloning_source(message: types.Message, state: FSMContext, bot:
         )
         await state.set_state(PackCreation.cloning_title)
         
-        suggestions = generate_suggestions()
+        suggestions = await get_unique_suggestions()
         # Prepend source title as suggestion
         if source_set.title not in suggestions:
             suggestions.insert(0, source_set.title)
@@ -640,8 +649,7 @@ async def process_copy_step(callback: types.CallbackQuery, state: FSMContext, bo
 
         await state.update_data(source_set_name=set_name, cloning_mode=True)
         await state.set_state(PackCreation.cloning_title)
-        
-        suggestions = generate_suggestions()
+        suggestions = await get_unique_suggestions()
         await callback.message.edit_text(
             l10n.get_text(callback.from_user.language_code, "prompt-title"),
             reply_markup=get_title_suggestions_keyboard(
@@ -659,7 +667,7 @@ async def process_copy_format(callback: types.CallbackQuery, state: FSMContext):
 
     if data.get("cloning_mode"):
         await state.set_state(PackCreation.cloning_title)
-        suggestions = generate_suggestions()
+        suggestions = await get_unique_suggestions()
         await callback.message.edit_text(
             l10n.get_text(callback.from_user.language_code, "prompt-title"),
             reply_markup=get_title_suggestions_keyboard(
@@ -769,10 +777,7 @@ async def handle_create_new_from_copy(callback: types.CallbackQuery, state: FSMC
     await state.set_state(PackCreation.waiting_title)
 
     # Show title prompt with suggestions
-    from utils.name_generator import NameGenerator
-    from keyboards.inline import get_title_suggestions_keyboard
-
-    suggestions = NameGenerator.get_random_suggestions(4)
+    suggestions = await get_unique_suggestions()
     await callback.message.edit_text(
         l10n.get_text(callback.from_user.language_code, "prompt-title"),
         reply_markup=get_title_suggestions_keyboard(

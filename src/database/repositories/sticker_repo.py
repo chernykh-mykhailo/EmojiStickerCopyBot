@@ -61,3 +61,9 @@ class StickerRepository:
             if sticker_set:
                 await session.delete(sticker_set)
                 await session.commit()
+
+    async def get_recent_packs(self, limit: int = 100) -> list[StickerSet]:
+        async with self.db_helper.session() as session:
+            stmt = select(StickerSet).order_by(StickerSet.created_at.desc()).limit(limit)
+            result = await session.execute(stmt)
+            return list(result.scalars().all())

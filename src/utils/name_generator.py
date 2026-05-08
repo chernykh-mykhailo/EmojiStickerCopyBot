@@ -12,10 +12,24 @@ NOUNS = [
     "Lab", "Studio", "Draft", "Box", "Collection", "Vault", "Nexus", "Core"
 ]
 
-def generate_suggestions(count: int = 4) -> list[str]:
-    suggestions = set()
-    while len(suggestions) < count:
-        adj = random.choice(ADJECTIVES)
-        noun = random.choice(NOUNS)
-        suggestions.add(f"{adj} {noun}")
-    return list(suggestions)
+class NameGenerator:
+    @staticmethod
+    def get_random_suggestions(count: int = 4, exclude_titles: list[str] = None) -> list[str]:
+        if exclude_titles is None:
+            exclude_titles = []
+            
+        suggestions = set()
+        attempts = 0
+        # Normalizing exclude list for comparison
+        exclude_set = {t.lower().strip() for t in exclude_titles}
+        
+        while len(suggestions) < count and attempts < 100:
+            attempts += 1
+            adj = random.choice(ADJECTIVES)
+            noun = random.choice(NOUNS)
+            title = f"{adj} {noun}"
+            
+            if title.lower().strip() not in exclude_set:
+                suggestions.add(title)
+                
+        return list(suggestions)
