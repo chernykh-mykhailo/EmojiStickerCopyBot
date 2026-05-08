@@ -121,6 +121,10 @@ def get_user_packs_keyboard(packs: list, locale: str, prefix: str = "target_pack
     for pack in packs:
         builder.button(text=pack.title, callback_data=f"{prefix}:{pack.name}")
 
+    builder.button(
+        text=l10n.get_text(locale, "btn-create-new"), callback_data="create_new_from_copy"
+    )
+
     builder.button(text=l10n.get_text(locale, "btn-back"), callback_data="copy_back")
     builder.button(
         text=l10n.get_text(locale, "btn-cancel"), callback_data="sticker_cancel"

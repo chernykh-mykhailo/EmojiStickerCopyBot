@@ -464,6 +464,9 @@ async def run_cloning(
             user_id, target_name, target_title, [input_sticker], set_type
         )
 
+        # Wait a bit for Telegram to index the new set
+        await asyncio.sleep(2)
+
         total = len(source_set.stickers)
         for i, s in enumerate(source_set.stickers[1:], start=2):
             # For remaining stickers, we can use copy_only if formats match
@@ -746,6 +749,36 @@ async def process_copy_target(
         )
 
     await callback.answer()
+
+
+@router.callback_query(F.data == "create_new_from_copy")
+async def handle_create_new_from_copy(callback: types.CallbackQuery, state: FSMContext, bot: Bot):
+    data = await state.get_data()
+    target_format = data.get("target_format", "regular")
+
+    # Map target_format to pack_type
+    pack_type = "regular"
+    if "custom_emoji" in target_format:
+        pack_type = "custom_emoji"
+    elif target_format == "animated":
+        pack_type = "animated"
+    elif target_format == "video":
+        pack_type = "video"
+
+    await state.update_data(pack_type=pack_type)
+    await state.set_state(PackCreation.waiting_title)
+
+    # Show title prompt with suggestions
+    from utils.name_generator import NameGenerator
+    from keyboards.inline import get_title_suggestions_keyboard
+
+    suggestions = NameGenerator.get_random_suggestions(4)
+    await callback.message.edit_text(
+        l10n.get_text(callback.from_user.language_code, "prompt-title"),
+        reply_markup=get_title_suggestions_keyboard(
+            callback.from_user.language_code, suggestions
+        ),
+    )
 
 
 async def add_item_to_pack(
