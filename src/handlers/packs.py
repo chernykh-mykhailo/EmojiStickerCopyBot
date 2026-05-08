@@ -23,7 +23,9 @@ from keyboards.inline import (
     get_first_pack_keyboard,
     get_open_pack_keyboard,
     get_pack_manage_keyboard,
+    get_title_suggestions_keyboard,
 )
+from utils.name_generator import generate_suggestions
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -80,10 +82,35 @@ async def select_type(callback: types.CallbackQuery, state: FSMContext):
         )
     else:
         await state.set_state(PackCreation.waiting_title)
+        suggestions = generate_suggestions()
         await callback.message.edit_text(
             l10n.get_text(user.language_code, "prompt-title"),
-            reply_markup=get_cancel_keyboard(user.language_code),
+            reply_markup=get_title_suggestions_keyboard(user.language_code, suggestions),
         )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("suggested_title:"))
+async def process_suggested_title(callback: types.CallbackQuery, state: FSMContext, bot: Bot):
+    title = callback.data.split(":")[1]
+    current_state = await state.get_state()
+    
+    if current_state == PackCreation.waiting_title:
+        await state.update_data(pack_title=title)
+        slug = title.replace(" ", "")
+        if re.match(r"^[a-zA-Z][a-zA-Z0-9_]*$", slug):
+            await finalize_pack_setup(callback.message, state, bot, slug, title)
+        else:
+            await state.set_state(PackCreation.waiting_name)
+            await callback.message.edit_text(l10n.get_text(callback.from_user.language_code, "prompt-name"))
+    elif current_state == PackCreation.cloning_title:
+        await state.update_data(cloning_title=title)
+        slug = title.replace(" ", "")
+        if re.match(r"^[a-zA-Z][a-zA-Z0-9_]*$", slug):
+            await finalize_cloning_setup(callback.message, state, bot, slug, title)
+        else:
+            await state.set_state(PackCreation.cloning_name)
+            await callback.message.edit_text(l10n.get_text(callback.from_user.language_code, "prompt-name"))
     await callback.answer()
 
 
@@ -289,8 +316,17 @@ async def process_cloning_source(message: types.Message, state: FSMContext, bot:
             source_set_name=sticker_set_name, source_title=source_set.title
         )
         await state.set_state(PackCreation.cloning_title)
+        
+        suggestions = generate_suggestions()
+        # Prepend source title as suggestion
+        if source_set.title not in suggestions:
+            suggestions.insert(0, source_set.title)
+            
         await message.reply(
-            l10n.get_text(message.from_user.language_code, "prompt-title")
+            l10n.get_text(message.from_user.language_code, "prompt-title"),
+            reply_markup=get_title_suggestions_keyboard(
+                message.from_user.language_code, suggestions[:4]
+            ),
         )
     except Exception as e:
         await message.reply(
@@ -331,7 +367,9 @@ async def finalize_cloning_setup(
     target_format = data.get("target_format", "regular")
 
     progress_msg = await message.reply(
-        l10n.get_text(message.from_user.language_code, "copy-started", title=title)
+        l10n.get_text(
+            message.from_user.language_code, "copy-started", title=title, name=full_name
+        )
     )
 
     asyncio.create_task(
@@ -445,6 +483,7 @@ async def run_cloning(
                             locale,
                             "copy-progress",
                             title=target_title,
+                            name=target_name,
                             current=i,
                             total=total,
                             percent=percent,
@@ -588,10 +627,13 @@ async def process_copy_step(callback: types.CallbackQuery, state: FSMContext, bo
             return
 
         await state.update_data(source_set_name=set_name, cloning_mode=True)
+        await state.set_state(PackCreation.cloning_title)
+        
+        suggestions = generate_suggestions()
         await callback.message.edit_text(
-            l10n.get_text(callback.from_user.language_code, "msg-select-format"),
-            reply_markup=get_format_selection(
-                callback.from_user.language_code, sticker_type
+            l10n.get_text(callback.from_user.language_code, "prompt-title"),
+            reply_markup=get_title_suggestions_keyboard(
+                callback.from_user.language_code, suggestions
             ),
         )
     await callback.answer()
@@ -605,8 +647,12 @@ async def process_copy_format(callback: types.CallbackQuery, state: FSMContext):
 
     if data.get("cloning_mode"):
         await state.set_state(PackCreation.cloning_title)
+        suggestions = generate_suggestions()
         await callback.message.edit_text(
-            l10n.get_text(callback.from_user.language_code, "prompt-title")
+            l10n.get_text(callback.from_user.language_code, "prompt-title"),
+            reply_markup=get_title_suggestions_keyboard(
+                callback.from_user.language_code, suggestions
+            ),
         )
         await callback.answer()
         return

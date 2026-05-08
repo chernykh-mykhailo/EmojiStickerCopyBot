@@ -165,3 +165,15 @@ def get_pack_manage_keyboard(locale: str, name: str):
     )
     builder.adjust(1)
     return builder.as_markup()
+
+
+def get_title_suggestions_keyboard(locale: str, suggestions: list[str]):
+    builder = InlineKeyboardBuilder()
+    for suggestion in suggestions:
+        builder.button(text=suggestion, callback_data=f"suggested_title:{suggestion}")
+
+    builder.button(
+        text=l10n.get_text(locale, "btn-cancel"), callback_data="sticker_cancel"
+    )
+    builder.adjust(2)
+    return builder.as_markup()

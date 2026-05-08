@@ -26,8 +26,10 @@ err-generic = ❌ Сталася помилка: {$error}
 
 processing-item = ⏳ Обробка...
 item-added = ✅ Додано! Всього стікерів: {$count}
-copy-started = ⏳ Клонування паку "{$title}" розпочато...
+copy-started = ⏳ Клонування паку "{$title}" розпочато!
+    Посилання: <code>https://t.me/addstickers/{$name}</code>
 copy-progress = ⏳ Клонування паку "{$title}": {$current}/{$total} ({$percent}%)
+    Посилання: <code>https://t.me/addstickers/{$name}</code>
 create-success = ✅ Пак "{$title}" успішно створено! Посилання: <code>https://t.me/addstickers/{$name}</code>
 wait-processing = ⏳ Зачекай, обробляється ще {$count} об'єктів...
 btn-open-pack = 📂 Відкрити пак
