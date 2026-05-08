@@ -10,6 +10,7 @@ btn-cancel = ❌ Скасувати
 btn-back = 🔙 Назад
 btn-copy-one = 📥 Додати цей стікер
 btn-clone-all = 👯 Клонувати весь пак
+btn-clone-emoji = 😀 Пак в Емодзі
 btn-fmt-original = 🌀 Як в оригіналі
 btn-fmt-emoji = 😀 В Емодзі-пак
 btn-fmt-emoji-nobg = 👤 В Емодзі (без фону)

@@ -94,16 +94,20 @@ async def select_type(callback: types.CallbackQuery, state: FSMContext):
         suggestions = await get_unique_suggestions()
         await callback.message.edit_text(
             l10n.get_text(user.language_code, "prompt-title"),
-            reply_markup=get_title_suggestions_keyboard(user.language_code, suggestions),
+            reply_markup=get_title_suggestions_keyboard(
+                user.language_code, suggestions
+            ),
         )
     await callback.answer()
 
 
 @router.callback_query(F.data.startswith("suggested_title:"))
-async def process_suggested_title(callback: types.CallbackQuery, state: FSMContext, bot: Bot):
+async def process_suggested_title(
+    callback: types.CallbackQuery, state: FSMContext, bot: Bot
+):
     title = callback.data.split(":")[1]
     current_state = await state.get_state()
-    
+
     if current_state == PackCreation.waiting_title:
         await state.update_data(pack_title=title)
         slug = title.replace(" ", "")
@@ -111,7 +115,9 @@ async def process_suggested_title(callback: types.CallbackQuery, state: FSMConte
             await finalize_pack_setup(callback, state, bot, slug, title)
         else:
             await state.set_state(PackCreation.waiting_name)
-            await callback.message.edit_text(l10n.get_text(callback.from_user.language_code, "prompt-name"))
+            await callback.message.edit_text(
+                l10n.get_text(callback.from_user.language_code, "prompt-name")
+            )
     elif current_state == PackCreation.cloning_title:
         await state.update_data(cloning_title=title)
         slug = title.replace(" ", "")
@@ -119,7 +125,9 @@ async def process_suggested_title(callback: types.CallbackQuery, state: FSMConte
             await finalize_cloning_setup(callback, state, bot, slug, title)
         else:
             await state.set_state(PackCreation.cloning_name)
-            await callback.message.edit_text(l10n.get_text(callback.from_user.language_code, "prompt-name"))
+            await callback.message.edit_text(
+                l10n.get_text(callback.from_user.language_code, "prompt-name")
+            )
     await callback.answer()
 
 
@@ -165,54 +173,91 @@ async def finalize_pack_setup(
     bot: Bot,
     name_short: str,
     title: str,
+    target_format: str = "regular"
 ):
     data = await state.get_data()
     sticker_type = data.get("sticker_type", "regular")
+    if "emoji" in target_format:
+        sticker_type = "custom_emoji"
 
     me = await bot.get_me()
-    full_name_base = f"{name_short}_by_{me.username}"
-    full_title = f"{title} by @{me.username}"
-
+    full_name = f"{name_short}_by_{me.username}"
+    
     await state.update_data(
-        pack_name_short=name_short, full_name=full_name_base, full_title=full_title
+        pack_name_short=name_short,
+        pack_title=title,
+        pack_type=sticker_type,
+        target_format=target_format
     )
+    
     user = event.from_user
     reply_to = event.message if isinstance(event, types.CallbackQuery) else event
     
     pack_service = container.resolve(PackService)
     sticker_service = container.resolve(StickerService)
-
+    
     try:
-        # Use 100x100 for emoji, 512x512 for regular
-        size = 100 if sticker_type == "custom_emoji" else 512
-        placeholder_data = ImageProcessor.get_placeholder(size)
-
-        # Determine format
-        sticker_format = "static"  # Placeholder is always static
-
-        input_sticker = sticker_service.create_input_sticker(
-            placeholder_data, "⏳", sticker_format
-        )
-
-        await pack_service.create_new_set(
-            user_id=user.id,
-            name=full_name_base,
-            title=full_title,
-            stickers=[input_sticker],
-            sticker_type=sticker_type,
-        )
-
-        await state.update_data(pack_created=True, placeholder_active=True)
-        await state.set_state(PackCreation.adding_items)
-
-        await reply_to.reply(
-            l10n.get_text(user.language_code, "prompt-media", title=title),
-            reply_markup=get_done_keyboard(user.language_code),
-        )
+        # Check if we have a pending sticker for quick create
+        file_id = data.get("pending_file_id")
+        emoji = data.get("pending_emoji", "😀")
+        
+        if file_id:
+            # Quick Create flow: create with actual sticker
+            file_data, sticker_format = await sticker_service.download_and_process(
+                bot, file_id, target_format
+            )
+            input_sticker = sticker_service.create_input_sticker(
+                file_data, emoji, sticker_format
+            )
+            
+            await pack_service.create_new_set(
+                user_id=user.id,
+                name=full_name,
+                title=title,
+                stickers=[input_sticker],
+                sticker_type=sticker_type
+            )
+            
+            if isinstance(event, types.CallbackQuery):
+                await event.message.edit_text(
+                    l10n.get_text(user.language_code, "create-success", title=title, name=full_name),
+                    reply_markup=get_open_pack_keyboard(user.language_code, full_name),
+                    parse_mode="HTML"
+                )
+            else:
+                await event.answer(
+                    l10n.get_text(user.language_code, "create-success", title=title, name=full_name),
+                    reply_markup=get_open_pack_keyboard(user.language_code, full_name),
+                    parse_mode="HTML"
+                )
+            await state.clear()
+        else:
+            # Manual flow: use placeholder
+            size = 100 if sticker_type == "custom_emoji" else 512
+            placeholder_data = ImageProcessor.get_placeholder(size)
+            input_sticker = sticker_service.create_input_sticker(placeholder_data, "⏳", "static")
+            
+            await pack_service.create_new_set(
+                user_id=user.id,
+                name=full_name,
+                title=title,
+                stickers=[input_sticker],
+                sticker_type=sticker_type
+            )
+            
+            await state.update_data(pack_created=True, placeholder_active=True, full_name=full_name)
+            await state.set_state(PackCreation.adding_items)
+            
+            await reply_to.reply(
+                l10n.get_text(user.language_code, "prompt-media", title=title),
+                reply_markup=get_done_keyboard(user.language_code),
+                parse_mode="HTML"
+            )
     except Exception as e:
-        logger.exception(f"Error creating pack with placeholder: {e}")
+        logger.exception(f"Error in finalize_pack_setup: {e}")
         await reply_to.reply(
-            l10n.get_text(user.language_code, "err-generic", error=html.quote(str(e)))
+            l10n.get_text(user.language_code, "err-generic", error=html.quote(str(e))),
+            parse_mode="HTML"
         )
 
 
@@ -319,7 +364,9 @@ async def process_cloning_source(message: types.Message, state: FSMContext, bot:
             sticker_set_name = text
 
     if not sticker_set_name:
-        await message.reply("❌ Please send a sticker or a valid pack name.", parse_mode="HTML")
+        await message.reply(
+            "❌ Please send a sticker or a valid pack name.", parse_mode="HTML"
+        )
         return
 
     try:
@@ -328,22 +375,23 @@ async def process_cloning_source(message: types.Message, state: FSMContext, bot:
             source_set_name=sticker_set_name, source_title=source_set.title
         )
         await state.set_state(PackCreation.cloning_title)
-        
+
         suggestions = await get_unique_suggestions()
         # Prepend source title as suggestion
         if source_set.title not in suggestions:
             suggestions.insert(0, source_set.title)
-            
+
         await message.reply(
             l10n.get_text(message.from_user.language_code, "prompt-title"),
             reply_markup=get_title_suggestions_keyboard(
                 message.from_user.language_code, suggestions[:4]
             ),
-            parse_mode="HTML"
+            parse_mode="HTML",
         )
     except Exception as e:
         await message.reply(
-            l10n.get_text(message.from_user.language_code, "err-generic", error=str(e)), parse_mode="HTML"
+            l10n.get_text(message.from_user.language_code, "err-generic", error=str(e)),
+            parse_mode="HTML",
         )
 
 
@@ -363,7 +411,8 @@ async def process_cloning_title(message: types.Message, state: FSMContext, bot: 
         # Title is not good for link, ask for one
         await state.set_state(PackCreation.cloning_name)
         await message.reply(
-            l10n.get_text(message.from_user.language_code, "prompt-name"), parse_mode="HTML"
+            l10n.get_text(message.from_user.language_code, "prompt-name"),
+            parse_mode="HTML",
         )
 
 
@@ -373,36 +422,36 @@ async def finalize_cloning_setup(
     bot: Bot,
     name_short: str,
     title: str,
+    target_format: str = "regular"
 ):
     data = await state.get_data()
     source_set_name = data.get("source_set_name")
 
     me = await bot.get_me()
     full_name = f"{name_short}_by_{me.username}"
-    full_title = f"{title} by @{me.username}"
 
-    target_format = data.get("target_format", "regular")
+    await state.update_data(
+        pack_title=title,
+        pack_name_short=name_short,
+        target_format=target_format
+    )
     user = event.from_user
     reply_to = event.message if isinstance(event, types.CallbackQuery) else event
 
-    progress_msg = await reply_to.reply(
+    await reply_to.reply(
         l10n.get_text(user.language_code, "copy-started", title=title, name=full_name),
-        reply_markup=get_open_pack_keyboard(user.language_code, full_name),
         parse_mode="HTML"
     )
 
-    asyncio.create_task(
-        run_cloning(
-            user.id,
-            bot,
-            source_set_name,
-            full_name,
-            full_title,
-            user.language_code,
-            target_format,
-            progress_msg.message_id,
-        )
-    )
+    asyncio.create_task(run_cloning(
+        user_id=user.id,
+        bot=bot,
+        source_name=source_set_name,
+        target_name=full_name,
+        target_title=title,
+        locale=user.language_code,
+        target_format=target_format
+    ))
     await state.clear()
 
 
@@ -413,7 +462,8 @@ async def process_cloning_name(message: types.Message, state: FSMContext, bot: B
     name_short = message.text.strip()
     if not re.match(r"^[a-zA-Z][a-zA-Z0-9_]*$", name_short):
         await message.reply(
-            l10n.get_text(message.from_user.language_code, "err-invalid-name"), parse_mode="HTML"
+            l10n.get_text(message.from_user.language_code, "err-invalid-name"),
+            parse_mode="HTML",
         )
         return
 
@@ -513,7 +563,7 @@ async def run_cloning(
                         chat_id=user_id,
                         message_id=progress_msg_id,
                         reply_markup=get_open_pack_keyboard(locale, target_name),
-                        parse_mode="HTML"
+                        parse_mode="HTML",
                     )
                 except Exception:
                     pass  # Ignore rate limits or message not changed
@@ -631,26 +681,44 @@ async def process_copy_step(callback: types.CallbackQuery, state: FSMContext, bo
             reply_markup=get_format_selection(
                 callback.from_user.language_code, sticker_type
             ),
+            parse_mode="HTML",
         )
-    elif step in ["quick_create", "quick_clone"]:
+    elif step == "back":
+        set_name = data.get("pending_set_name")
+        await callback.message.edit_text(
+            l10n.get_text(callback.from_user.language_code, "msg-what-to-do"),
+            reply_markup=get_copy_menu(
+                callback.from_user.language_code, bool(set_name)
+            ),
+            parse_mode="HTML",
+        )
+    elif step in ["quick_create", "quick_clone", "quick_clone_emoji"]:
         # Generate unique name and start cloning immediately
         suggestions = await get_unique_suggestions(1)
         title = suggestions[0]
         slug = title.replace(" ", "")
-        
+
+        target_format = "regular"
+        if "emoji" in step:
+            target_format = "custom_emoji"
+            title = f"{title} (Emoji)"
+
         if step == "quick_create":
-            # Just this one sticker
-            await finalize_pack_setup(callback, state, bot, slug, title)
+            await finalize_pack_setup(callback, state, bot, slug, title, target_format)
         else:
-            # Full pack
             set_name = data.get("pending_set_name")
             if not set_name:
-                await callback.answer("❌ This sticker doesn't belong to a pack.", show_alert=True)
+                await callback.answer(
+                    "❌ This sticker doesn't belong to a pack.", show_alert=True
+                )
                 return
             await state.update_data(source_set_name=set_name)
-            await finalize_cloning_setup(callback, state, bot, slug, title)
-        
+            await finalize_cloning_setup(
+                callback, state, bot, slug, title, target_format
+            )
+
     await callback.answer()
+
 
 
 @router.callback_query(F.data.startswith("copy_fmt:"))
@@ -754,7 +822,9 @@ async def process_copy_target(
 
 
 @router.callback_query(F.data == "create_new_from_copy")
-async def handle_create_new_from_copy(callback: types.CallbackQuery, state: FSMContext, bot: Bot):
+async def handle_create_new_from_copy(
+    callback: types.CallbackQuery, state: FSMContext, bot: Bot
+):
     data = await state.get_data()
     target_format = data.get("target_format", "regular")
 
