@@ -27,11 +27,11 @@ err-generic = ❌ An error occurred: {$error}
 processing-item = ⏳ Processing...
 item-added = ✅ Added to <a href="https://t.me/addstickers/{$name}">{$title}</a>! Total stickers: {$count}
 copy-started = ⏳ Cloning started for "{$title}"!
-<code>https://t.me/addstickers/{$name}</code>
+    <code>https://t.me/addstickers/{$name}</code>
 copy-progress = ⏳ Cloning "{$title}": {$current}/{$total} ({$percent}%)
-<code>https://t.me/addstickers/{$name}</code>
+    <code>https://t.me/addstickers/{$name}</code>
 create-success = ✅ Pack <a href="https://t.me/addstickers/{$name}">{$title}</a> created successfully!
-<code>https://t.me/addstickers/{$name}</code>
+    <code>https://t.me/addstickers/{$name}</code>
 wait-processing = ⏳ Please wait, processing {$count} more items...
 btn-done = ✅ Done
 btn-open-pack = 📂 Open Pack

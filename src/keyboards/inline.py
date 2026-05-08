@@ -53,6 +53,9 @@ def get_copy_menu(locale: str, has_pack: bool = True):
         builder.button(
             text=l10n.get_text(locale, "btn-clone-all"), callback_data="copy_step:quick_clone"
         )
+        builder.button(
+            text=l10n.get_text(locale, "btn-clone-emoji"), callback_data="copy_step:quick_clone_emoji"
+        )
     builder.button(
         text=l10n.get_text(locale, "btn-quick-create"), callback_data="copy_step:quick_create"
     )

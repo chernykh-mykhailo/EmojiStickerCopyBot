@@ -438,7 +438,7 @@ async def finalize_cloning_setup(
     user = event.from_user
     reply_to = event.message if isinstance(event, types.CallbackQuery) else event
 
-    await reply_to.reply(
+    msg = await reply_to.reply(
         l10n.get_text(user.language_code, "copy-started", title=title, name=full_name),
         parse_mode="HTML"
     )
@@ -450,7 +450,8 @@ async def finalize_cloning_setup(
         target_name=full_name,
         target_title=title,
         locale=user.language_code,
-        target_format=target_format
+        target_format=target_format,
+        progress_msg_id=msg.message_id
     ))
     await state.clear()
 
@@ -1030,9 +1031,13 @@ async def deactivate_copy_mode(callback: types.CallbackQuery, state: FSMContext)
 async def process_copy_back(callback: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
     if data.get("pending_file_id") or data.get("pending_emoji"):
+        set_name = data.get("pending_set_name")
         await callback.message.edit_text(
             l10n.get_text(callback.from_user.language_code, "msg-what-to-do"),
-            reply_markup=get_copy_menu(callback.from_user.language_code),
+            reply_markup=get_copy_menu(
+                callback.from_user.language_code, bool(set_name)
+            ),
+            parse_mode="HTML",
         )
     else:
         # Fallback to main menu if no pending item
@@ -1044,8 +1049,9 @@ async def process_copy_back(callback: types.CallbackQuery, state: FSMContext):
             callback.from_user.language_code or "uk",
         )
         await callback.message.edit_text(
-            l10n.get_text(user.language_code, "packs-menu"),
+            l10n.get_text(user.language_code, "msg-my-packs"),
             reply_markup=get_packs_keyboard(user.language_code),
+            parse_mode="HTML",
         )
     await callback.answer()
 
