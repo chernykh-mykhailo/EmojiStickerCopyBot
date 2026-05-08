@@ -376,7 +376,8 @@ async def finalize_cloning_setup(
     reply_to = event.message if isinstance(event, types.CallbackQuery) else event
 
     progress_msg = await reply_to.reply(
-        l10n.get_text(user.language_code, "copy-started", title=title, name=full_name)
+        l10n.get_text(user.language_code, "copy-started", title=title, name=full_name),
+        reply_markup=get_open_pack_keyboard(user.language_code, full_name),
     )
 
     asyncio.create_task(
@@ -497,6 +498,7 @@ async def run_cloning(
                         ),
                         chat_id=user_id,
                         message_id=progress_msg_id,
+                        reply_markup=get_open_pack_keyboard(locale, target_name),
                     )
                 except Exception:
                     pass  # Ignore rate limits or message not changed
