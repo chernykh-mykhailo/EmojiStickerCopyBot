@@ -6,6 +6,7 @@ RUN mkdir -p /app/data
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install

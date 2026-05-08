@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
+
 class DatabaseHelper:
     def __init__(self, url: str):
         # Create directory for SQLite if needed
@@ -12,13 +13,13 @@ class DatabaseHelper:
             db_dir = os.path.dirname(db_path)
             if db_dir and not os.path.exists(db_dir):
                 os.makedirs(db_dir, exist_ok=True)
-                
+
         self.engine = create_async_engine(url)
         self.session_factory = async_sessionmaker(
             bind=self.engine,
             class_=AsyncSession,
             expire_on_commit=False,
-            autoflush=False
+            autoflush=False,
         )
 
     @asynccontextmanager

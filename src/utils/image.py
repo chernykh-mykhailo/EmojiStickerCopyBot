@@ -1,23 +1,24 @@
 import io
 from PIL import Image
 
+
 class ImageProcessor:
     @staticmethod
     def _fit_and_pad(img: Image.Image, size: int) -> bytes:
         """Resize image to fit into size x size with padding to keep aspect ratio"""
         if img.mode != "RGBA":
             img = img.convert("RGBA")
-        
+
         # Resize to fit inside size x size
         img.thumbnail((size, size), Image.LANCZOS)
-        
+
         # Create canvas of exact size
         new_img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
         # Center
         x = (size - img.width) // 2
         y = (size - img.height) // 2
         new_img.paste(img, (x, y))
-        
+
         out = io.BytesIO()
         # Telegram likes WebP for stickers/emojis now
         new_img.save(out, format="WEBP", lossless=True)
@@ -41,7 +42,7 @@ class ImageProcessor:
         img = Image.open(io.BytesIO(file_data))
         if img.mode != "RGBA":
             img = img.convert("RGBA")
-            
+
         datas = img.getdata()
         new_data = []
         for item in datas:
@@ -50,7 +51,7 @@ class ImageProcessor:
             else:
                 new_data.append(item)
         img.putdata(new_data)
-        
+
         return ImageProcessor._fit_and_pad(img, 100)
 
     @staticmethod

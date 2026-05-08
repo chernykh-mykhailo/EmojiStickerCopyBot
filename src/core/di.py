@@ -9,12 +9,13 @@ from services.pack_service import PackService
 from core.config import config
 from core.bot_instance import bot
 
+
 def setup_di() -> punq.Container:
     container = punq.Container()
 
     # Infrastructure
     container.register(DatabaseHelper, instance=DatabaseHelper(config.database_url))
-    
+
     # Repositories
     container.register(UserRepository)
     container.register(StickerRepository)
@@ -28,5 +29,6 @@ def setup_di() -> punq.Container:
     container.register(PackService)
 
     return container
+
 
 container = setup_di()
