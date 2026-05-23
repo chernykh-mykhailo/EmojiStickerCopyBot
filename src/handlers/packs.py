@@ -618,6 +618,10 @@ async def run_cloning(
 async def handle_incoming_media(message: types.Message, state: FSMContext, bot: Bot):
     # If in active copy mode, add immediately
     current_state = await state.get_state()
+
+    # Don't intercept messages that belong to the letter generator FSM
+    if current_state and current_state.startswith("LetterGeneratorState:"):
+        return
     data = await state.get_data()
 
     if current_state == CopyMode.active.state:
