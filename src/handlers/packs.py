@@ -2,9 +2,10 @@ import re
 import asyncio
 import logging
 from aiogram import Router, F, Bot, types, html
-from aiogram.filters import Command
+from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
+from handlers.letter_generator import LetterGeneratorState
 from core.di import container
 from services.pack_service import PackService
 from services.sticker_service import StickerService
@@ -608,20 +609,17 @@ async def run_cloning(
 
 
 @router.message(
+    ~StateFilter(LetterGeneratorState),
     F.sticker
     | F.photo
     | F.video
     | F.animation
     | F.document
-    | (F.text & ~F.text.startswith("/"))
+    | (F.text & ~F.text.startswith("/")),
 )
 async def handle_incoming_media(message: types.Message, state: FSMContext, bot: Bot):
     # If in active copy mode, add immediately
     current_state = await state.get_state()
-
-    # Don't intercept messages that belong to the letter generator FSM
-    if current_state and current_state.startswith("LetterGeneratorState:"):
-        return
     data = await state.get_data()
 
     if current_state == CopyMode.active.state:
