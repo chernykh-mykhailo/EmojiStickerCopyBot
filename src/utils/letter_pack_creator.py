@@ -218,18 +218,29 @@ async def create_letter_pack(
     full_name = f"{name_short}_by_{me.username}"
     full_title = f"{title} by @{me.username}"
 
+    # Map letters to regional indicator emoji (🇦-🇿) for EN,
+    # or use a generic letter emoji for UK/other alphabets.
+    # Telegram requires a real Unicode emoji in emoji_list.
+    # The actual letter is passed via `keywords` for search.
+    REGIONAL_INDICATORS = {
+        c: chr(0x1F1E6 + ord(c) - ord('A'))
+        for c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    }
+    FALLBACK_EMOJI = "🔤"
+
     stickers = []
     
     # Render all letters in alphabet
     for char in alphabet:
         sticker_data = generate_letter_image(char, **style_options)
         
-        # Use character itself or letter emojis as keying list
-        emoji_list = [char]
+        # Pick a valid Unicode emoji for this letter
+        emoji = REGIONAL_INDICATORS.get(char.upper(), FALLBACK_EMOJI)
         
         input_sticker = InputSticker(
             sticker=BufferedInputFile(sticker_data, filename=f"letter_{char}.webp"),
-            emoji_list=emoji_list,
+            emoji_list=[emoji],
+            keywords=[char, char.lower()],
             format="static",
         )
         stickers.append(input_sticker)
