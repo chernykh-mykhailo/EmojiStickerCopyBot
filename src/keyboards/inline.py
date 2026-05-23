@@ -14,6 +14,10 @@ def get_packs_keyboard(locale: str):
     builder.button(
         text=l10n.get_text(locale, "btn-clone-pack"), callback_data="sticker_type:clone"
     )
+    builder.button(
+        text="✨ Генератор літер" if locale == "uk" else "✨ Letter Generator",
+        callback_data="lg_start",
+    )
     builder.adjust(1)
     return builder.as_markup()
 

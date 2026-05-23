@@ -10,7 +10,7 @@ from core.logger import setup_logger
 from core.di import container
 from database.connection import DatabaseHelper
 from database.models import Base
-from handlers import common, packs
+from handlers import common, packs, letter_generator
 from utils.commands import set_commands
 
 
@@ -29,6 +29,7 @@ async def main():
     # Register routers
     dp.include_router(common.router)
     dp.include_router(packs.router)
+    dp.include_router(letter_generator.router)
 
     logger.info("Bot started!")
     try:

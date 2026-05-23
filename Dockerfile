@@ -7,6 +7,8 @@ RUN mkdir -p /app/data
 RUN apt-get update && apt-get install -y \
     build-essential \
     ffmpeg \
+    fonts-dejavu \
+    fonts-liberation \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install
