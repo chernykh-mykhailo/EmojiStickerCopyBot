@@ -218,29 +218,88 @@ async def create_letter_pack(
     full_name = f"{name_short}_by_{me.username}"
     full_title = f"{title} by @{me.username}"
 
-    # Map letters to regional indicator emoji (🇦-🇿) for EN,
-    # or use a generic letter emoji for UK/other alphabets.
-    # Telegram requires a real Unicode emoji in emoji_list.
-    # The actual letter is passed via `keywords` for search.
-    REGIONAL_INDICATORS = {
-        c: chr(0x1F1E6 + ord(c) - ord('A'))
-        for c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    # emoji_list must contain real Unicode emoji that Telegram associates with each letter
+    # when the user types in the message field.
+    # Using "negative squared" / "blood type" letter emoji where available,
+    # falling back to regional indicators for the rest.
+    # Cyrillic letters that look like Latin get the Latin equivalent emoji.
+    LETTER_EMOJI_MAP = {
+        # Latin — use negative squared letters where they exist, else regional indicator
+        "A": "🅰️",   # U+1F170
+        "B": "🅱️",   # U+1F171
+        "C": "🇨",
+        "D": "🇩",
+        "E": "🇪",
+        "F": "🇫",
+        "G": "🇬",
+        "H": "🇭",
+        "I": "🇮",
+        "J": "🇯",
+        "K": "🇰",
+        "L": "🇱",
+        "M": "Ⓜ️",   # U+24C2
+        "N": "🇳",
+        "O": "🅾️",   # U+1F17E
+        "P": "🅿️",   # U+1F17F
+        "Q": "🇶",
+        "R": "🇷",
+        "S": "🇸",
+        "T": "🇹",
+        "U": "🇺",
+        "V": "🇻",
+        "W": "🇼",
+        "X": "❎",
+        "Y": "🇾",
+        "Z": "🇿",
+        # Cyrillic — map visually similar to Latin emoji
+        "А": "🅰️",
+        "Б": "🇧",
+        "В": "🅱️",
+        "Г": "🇬",
+        "Ґ": "🇬",
+        "Д": "🇩",
+        "Е": "🇪",
+        "Є": "🇪",
+        "Ж": "🇿",
+        "З": "🇿",
+        "И": "🇮",
+        "І": "🇮",
+        "Ї": "🇮",
+        "Й": "🇯",
+        "К": "🇰",
+        "Л": "🇱",
+        "М": "Ⓜ️",
+        "Н": "🇭",
+        "О": "🅾️",
+        "П": "🇵",
+        "Р": "🇷",
+        "С": "🇨",
+        "Т": "🇹",
+        "У": "🇺",
+        "Ф": "🇫",
+        "Х": "❎",
+        "Ц": "🇨",
+        "Ч": "🇨",
+        "Ш": "🇸",
+        "Щ": "🇸",
+        "Ь": "🇧",
+        "Ю": "🇺",
+        "Я": "🇷",
     }
     FALLBACK_EMOJI = "🔤"
 
     stickers = []
-    
+
     # Render all letters in alphabet
     for char in alphabet:
         sticker_data = generate_letter_image(char, **style_options)
-        
-        # Pick a valid Unicode emoji for this letter
-        emoji = REGIONAL_INDICATORS.get(char.upper(), FALLBACK_EMOJI)
-        
+
+        emoji = LETTER_EMOJI_MAP.get(char.upper(), LETTER_EMOJI_MAP.get(char, FALLBACK_EMOJI))
+
         input_sticker = InputSticker(
             sticker=BufferedInputFile(sticker_data, filename=f"letter_{char}.webp"),
             emoji_list=[emoji],
-            keywords=[char, char.lower()],
+            keywords=[char, char.lower(), f"letter {char.lower()}"],
             format="static",
         )
         stickers.append(input_sticker)
