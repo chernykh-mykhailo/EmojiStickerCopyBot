@@ -220,71 +220,71 @@ async def create_letter_pack(
 
     # emoji_list must contain real Unicode emoji that Telegram associates with each letter
     # when the user types in the message field.
-    # Using "negative squared" / "blood type" letter emoji where available,
-    # falling back to regional indicators for the rest.
-    # Cyrillic letters that look like Latin get the Latin equivalent emoji.
+    # Standard letters are not emojis, and regional indicator symbols are not accepted
+    # as standalone emojis by Telegram. Thus, we map them to valid standard Unicode emojis,
+    # prioritizing negative-squared and letter-like emojis (🅰️, 🅱️, 🆑, 🆔, etc.).
     LETTER_EMOJI_MAP = {
-        # Latin — use negative squared letters where they exist, else regional indicator
-        "A": "🅰️",   # U+1F170
-        "B": "🅱️",   # U+1F171
-        "C": "🇨",
-        "D": "🇩",
-        "E": "🇪",
-        "F": "🇫",
-        "G": "🇬",
-        "H": "🇭",
-        "I": "🇮",
-        "J": "🇯",
-        "K": "🇰",
-        "L": "🇱",
-        "M": "Ⓜ️",   # U+24C2
-        "N": "🇳",
-        "O": "🅾️",   # U+1F17E
-        "P": "🅿️",   # U+1F17F
-        "Q": "🇶",
-        "R": "🇷",
-        "S": "🇸",
-        "T": "🇹",
-        "U": "🇺",
-        "V": "🇻",
-        "W": "🇼",
-        "X": "❎",
-        "Y": "🇾",
-        "Z": "🇿",
-        # Cyrillic — map visually similar to Latin emoji
-        "А": "🅰️",
-        "Б": "🇧",
-        "В": "🅱️",
-        "Г": "🇬",
-        "Ґ": "🇬",
-        "Д": "🇩",
-        "Е": "🇪",
-        "Є": "🇪",
-        "Ж": "🇿",
-        "З": "🇿",
-        "И": "🇮",
-        "І": "🇮",
-        "Ї": "🇮",
-        "Й": "🇯",
-        "К": "🇰",
-        "Л": "🇱",
-        "М": "Ⓜ️",
-        "Н": "🇭",
-        "О": "🅾️",
-        "П": "🇵",
-        "Р": "🇷",
-        "С": "🇨",
-        "Т": "🇹",
-        "У": "🇺",
-        "Ф": "🇫",
-        "Х": "❎",
-        "Ц": "🇨",
-        "Ч": "🇨",
-        "Ш": "🇸",
-        "Щ": "🇸",
-        "Ь": "🇧",
-        "Ю": "🇺",
-        "Я": "🇷",
+        # Latin — standard letters mapped to block/squared or symbol emojis
+        "A": ["🅰️", "🔤"],
+        "B": ["🅱️", "🔤"],
+        "C": ["🆑", "🆒", "🔤"],
+        "D": ["🆔", "🔤"],
+        "E": ["🆓", "🆕", "🔤"],
+        "F": ["🆓", "🔤"],
+        "G": ["🆖", "🔤"],
+        "H": ["🔤"],
+        "I": ["ℹ️", "🔤"],
+        "J": ["🔤"],
+        "K": ["🆗", "🔤"],
+        "L": ["🆑", "🆒", "🔤"],
+        "M": ["Ⓜ️", "🔤"],
+        "N": ["🆕", "🆖", "🔤"],
+        "O": ["🅾️", "🔤"],
+        "P": ["🅿️", "🔤"],
+        "Q": ["🔤"],
+        "R": ["®️", "🆓", "🔤"],
+        "S": ["🆘", "🆚", "🔤"],
+        "T": ["🔤"],
+        "U": ["🆙", "🆒", "🔤"],
+        "V": ["🆚", "🔤"],
+        "W": ["🆕", "🔤"],
+        "X": ["❎", "🔤"],
+        "Y": ["🔤"],
+        "Z": ["💤", "🔤"],
+        # Cyrillic — mapped to corresponding block/squared or symbol emojis
+        "А": ["🅰️", "🔤"],
+        "Б": ["🅱️", "🔤"],
+        "В": ["🅱️", "🔤"],
+        "Г": ["🆖", "🔤"],
+        "Ґ": ["🆖", "🔤"],
+        "Д": ["🆔", "🔤"],
+        "Е": ["🔤"],
+        "Є": ["🔤"],
+        "Ж": ["💤", "🔤"],
+        "З": ["💤", "🔤"],
+        "И": ["ℹ️", "🔤"],
+        "І": ["ℹ️", "🔤"],
+        "Ї": ["ℹ️", "🔤"],
+        "Й": ["ℹ️", "🔤"],
+        "К": ["🆗", "🔤"],
+        "Л": ["🆑", "🔤"],
+        "М": ["Ⓜ️", "🔤"],
+        "Н": ["🔤"],
+        "О": ["🅾️", "🔤"],
+        "П": ["🅿️", "🔤"],
+        "Р": ["®️", "🔤"],
+        "С": ["🆑", "🔤"],
+        "Т": ["🔤"],
+        "У": ["🆙", "🔤"],
+        "Ф": ["🆓", "🔤"],
+        "Х": ["❎", "🔤"],
+        "Ц": ["🆑", "🔤"],
+        "Ч": ["🆑", "🔤"],
+        "Ш": ["🆘", "🔤"],
+        "Щ": ["🆘", "🔤"],
+        "Ь": ["🅱️", "🔤"],
+        "Ю": ["🆙", "🔤"],
+        "Я": ["®️", "🔤"],
     }
     FALLBACK_EMOJI = "🔤"
 
@@ -294,11 +294,11 @@ async def create_letter_pack(
     for char in alphabet:
         sticker_data = generate_letter_image(char, **style_options)
 
-        emoji = LETTER_EMOJI_MAP.get(char.upper(), LETTER_EMOJI_MAP.get(char, FALLBACK_EMOJI))
+        emojis = LETTER_EMOJI_MAP.get(char.upper(), LETTER_EMOJI_MAP.get(char, [FALLBACK_EMOJI]))
 
         input_sticker = InputSticker(
             sticker=BufferedInputFile(sticker_data, filename=f"letter_{char}.webp"),
-            emoji_list=[emoji],
+            emoji_list=emojis,
             keywords=[char, char.lower(), f"letter {char.lower()}"],
             format="static",
         )
