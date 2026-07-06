@@ -51,7 +51,12 @@ class StickerService:
                 # For emojis, we still might need to resize if it's a regular sticker (512 -> 100)
                 # So only fast-path if it's ALREADY an emoji or it's a regular-to-regular copy
                 if type_matches and is_target_emoji == is_source_emoji:
-                    return file_id, source_type
+                    # If it's animated, we must ensure it is not too big
+                    if source_type == "animated":
+                        if source_sticker and source_sticker.file_size and source_sticker.file_size <= 64000:
+                            return file_id, source_type
+                    else:
+                        return file_id, source_type
 
         file = await bot.get_file(file_id)
         down_file = await bot.download_file(file.file_path)
@@ -81,10 +86,8 @@ class StickerService:
         if "anim" in target_format:
             if is_source_anim:
                 # Check size for emojis
-                if "emoji" in target_format and len(file_data) > 64000:
-                    # Too big for emoji, fallback to static if we could, but TGS is hard
-                    # For now, return as is and let it fail or be skipped
-                    return file_data, "animated"
+                if len(file_data) > 64000:
+                    file_data = StickerService.shrink_tgs(file_data)
                 return file_data, "animated"
             else:
                 # Can't convert static/video to TGS
@@ -130,3 +133,30 @@ class StickerService:
             emoji_list=[emoji],
             format=format,
         )
+
+    @staticmethod
+    def shrink_tgs(tgs_data: bytes) -> bytes:
+        """Decompress TGS (gzipped Lottie JSON), round floats to reduce size, minify, and re-compress"""
+        import gzip
+        import json
+        try:
+            decompressed = gzip.decompress(tgs_data)
+            lottie = json.loads(decompressed.decode('utf-8'))
+
+            def round_floats(obj):
+                if isinstance(obj, float):
+                    return round(obj, 2)
+                elif isinstance(obj, dict):
+                    return {k: round_floats(v) for k, v in obj.items()}
+                elif isinstance(obj, list):
+                    return [round_floats(x) for x in obj]
+                return obj
+
+            shrunk_lottie = round_floats(lottie)
+            serialized = json.dumps(shrunk_lottie, separators=(',', ':')).encode('utf-8')
+            shrunk_data = gzip.compress(serialized)
+            logger.info(f"Shrunk TGS from {len(tgs_data)} to {len(shrunk_data)} bytes")
+            return shrunk_data
+        except Exception as e:
+            logger.error(f"Error shrinking TGS: {e}")
+            return tgs_data
