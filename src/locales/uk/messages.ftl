@@ -13,6 +13,7 @@ btn-clone-all = 👯 Клонувати весь пак
 btn-clone-emoji = 😀 Пак в Емодзі
 btn-fmt-original = 🌀 Як в оригіналі
 btn-fmt-emoji = 😀 В Емодзі-пак
+btn-fmt-sticker = 🖼 В Стікер-пак
 btn-fmt-emoji-nobg = 👤 В Емодзі (без фону)
 btn-create-first-regular = 🖼 Створити звичайний
 btn-create-first-emoji = 😀 Створити емодзі

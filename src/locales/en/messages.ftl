@@ -12,6 +12,7 @@ btn-copy-one = 📥 Add this sticker
 btn-clone-all = 👯 Clone full pack
 btn-fmt-original = 🌀 Like original
 btn-fmt-emoji = 😀 To Emoji pack
+btn-fmt-sticker = 🖼 To Sticker pack
 btn-fmt-emoji-nobg = 👤 To Emoji (no bg)
 btn-create-first-regular = 🖼 Create regular
 btn-create-first-emoji = 😀 Create emoji

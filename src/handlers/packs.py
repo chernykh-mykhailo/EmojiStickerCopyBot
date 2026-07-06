@@ -764,18 +764,20 @@ async def process_copy_step(callback: types.CallbackQuery, state: FSMContext, bo
     sticker_type = data.get("pending_sticker_type", "static")
 
     if step == "format":
+        is_emoji = data.get("pending_is_emoji", False)
         await callback.message.edit_text(
             l10n.get_text(callback.from_user.language_code, "msg-select-format"),
             reply_markup=get_format_selection(
-                callback.from_user.language_code, sticker_type
+                callback.from_user.language_code, sticker_type, is_emoji=is_emoji
             ),
             parse_mode="HTML",
         )
     elif step == "clone_format":
+        is_emoji = data.get("pending_is_emoji", False)
         await callback.message.edit_text(
             l10n.get_text(callback.from_user.language_code, "msg-select-format"),
             reply_markup=get_clone_format_selection(
-                callback.from_user.language_code, sticker_type
+                callback.from_user.language_code, sticker_type, is_emoji=is_emoji
             ),
             parse_mode="HTML",
         )

@@ -80,96 +80,66 @@ def get_copy_menu(locale: str, has_pack: bool = True):
     return builder.as_markup()
 
 
-def get_format_selection(locale: str, sticker_type: str = "static"):
+def get_format_selection(locale: str, sticker_type: str = "static", is_emoji: bool = False):
     builder = InlineKeyboardBuilder()
 
     if sticker_type == "static":
-        builder.button(
-            text=l10n.get_text(locale, "btn-fmt-original"),
-            callback_data="copy_fmt:regular",
-        )
-        builder.button(
-            text=l10n.get_text(locale, "btn-fmt-emoji"),
-            callback_data="copy_fmt:custom_emoji",
-        )
-        builder.button(
-            text=l10n.get_text(locale, "btn-fmt-emoji-nobg"),
-            callback_data="copy_fmt:emoji_nobg",
-        )
+        orig_callback = "copy_fmt:custom_emoji" if is_emoji else "copy_fmt:regular"
+        alt_callback = "copy_fmt:regular" if is_emoji else "copy_fmt:custom_emoji"
     elif sticker_type == "animated":
-        builder.button(
-            text=l10n.get_text(locale, "btn-fmt-original"),
-            callback_data="copy_fmt:animated",
-        )
-        builder.button(
-            text=l10n.get_text(locale, "btn-fmt-emoji"),
-            callback_data="copy_fmt:custom_emoji_anim",
-        )
-        builder.button(
-            text=l10n.get_text(locale, "btn-fmt-emoji-nobg"),
-            callback_data="copy_fmt:emoji_nobg",
-        )
-    elif sticker_type == "video":
-        builder.button(
-            text=l10n.get_text(locale, "btn-fmt-original"),
-            callback_data="copy_fmt:video",
-        )
-        builder.button(
-            text=l10n.get_text(locale, "btn-fmt-emoji"),
-            callback_data="copy_fmt:custom_emoji_video",
-        )
-        builder.button(
-            text=l10n.get_text(locale, "btn-fmt-emoji-nobg"),
-            callback_data="copy_fmt:emoji_nobg",
-        )
+        orig_callback = "copy_fmt:custom_emoji_anim" if is_emoji else "copy_fmt:animated"
+        alt_callback = "copy_fmt:animated" if is_emoji else "copy_fmt:custom_emoji_anim"
+    else:  # video
+        orig_callback = "copy_fmt:custom_emoji_video" if is_emoji else "copy_fmt:video"
+        alt_callback = "copy_fmt:video" if is_emoji else "copy_fmt:custom_emoji_video"
+
+    alt_text_key = "btn-fmt-sticker" if is_emoji else "btn-fmt-emoji"
+
+    builder.button(
+        text=l10n.get_text(locale, "btn-fmt-original"),
+        callback_data=orig_callback,
+    )
+    builder.button(
+        text=l10n.get_text(locale, alt_text_key),
+        callback_data=alt_callback,
+    )
+    builder.button(
+        text=l10n.get_text(locale, "btn-fmt-emoji-nobg"),
+        callback_data="copy_fmt:emoji_nobg",
+    )
 
     builder.button(text=l10n.get_text(locale, "btn-back"), callback_data="copy_back")
     builder.adjust(1)
     return builder.as_markup()
 
 
-def get_clone_format_selection(locale: str, sticker_type: str = "static"):
+def get_clone_format_selection(locale: str, sticker_type: str = "static", is_emoji: bool = False):
     builder = InlineKeyboardBuilder()
 
     if sticker_type == "static":
-        builder.button(
-            text=l10n.get_text(locale, "btn-fmt-original"),
-            callback_data="clone_fmt:regular",
-        )
-        builder.button(
-            text=l10n.get_text(locale, "btn-fmt-emoji"),
-            callback_data="clone_fmt:custom_emoji",
-        )
-        builder.button(
-            text=l10n.get_text(locale, "btn-fmt-emoji-nobg"),
-            callback_data="clone_fmt:emoji_nobg",
-        )
+        orig_callback = "clone_fmt:custom_emoji" if is_emoji else "clone_fmt:regular"
+        alt_callback = "clone_fmt:regular" if is_emoji else "clone_fmt:custom_emoji"
     elif sticker_type == "animated":
-        builder.button(
-            text=l10n.get_text(locale, "btn-fmt-original"),
-            callback_data="clone_fmt:animated",
-        )
-        builder.button(
-            text=l10n.get_text(locale, "btn-fmt-emoji"),
-            callback_data="clone_fmt:custom_emoji_anim",
-        )
-        builder.button(
-            text=l10n.get_text(locale, "btn-fmt-emoji-nobg"),
-            callback_data="clone_fmt:emoji_nobg",
-        )
-    elif sticker_type == "video":
-        builder.button(
-            text=l10n.get_text(locale, "btn-fmt-original"),
-            callback_data="clone_fmt:video",
-        )
-        builder.button(
-            text=l10n.get_text(locale, "btn-fmt-emoji"),
-            callback_data="clone_fmt:custom_emoji_video",
-        )
-        builder.button(
-            text=l10n.get_text(locale, "btn-fmt-emoji-nobg"),
-            callback_data="clone_fmt:emoji_nobg",
-        )
+        orig_callback = "clone_fmt:custom_emoji_anim" if is_emoji else "clone_fmt:animated"
+        alt_callback = "clone_fmt:animated" if is_emoji else "clone_fmt:custom_emoji_anim"
+    else:  # video
+        orig_callback = "clone_fmt:custom_emoji_video" if is_emoji else "clone_fmt:video"
+        alt_callback = "clone_fmt:video" if is_emoji else "clone_fmt:custom_emoji_video"
+
+    alt_text_key = "btn-fmt-sticker" if is_emoji else "btn-fmt-emoji"
+
+    builder.button(
+        text=l10n.get_text(locale, "btn-fmt-original"),
+        callback_data=orig_callback,
+    )
+    builder.button(
+        text=l10n.get_text(locale, alt_text_key),
+        callback_data=alt_callback,
+    )
+    builder.button(
+        text=l10n.get_text(locale, "btn-fmt-emoji-nobg"),
+        callback_data="clone_fmt:emoji_nobg",
+    )
 
     builder.button(text=l10n.get_text(locale, "btn-back"), callback_data="copy_back")
     builder.adjust(1)
