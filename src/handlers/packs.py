@@ -375,6 +375,18 @@ async def process_item(message: types.Message, state: FSMContext, bot: Bot):
 @router.message(PackCreation.cloning_source, F.sticker | F.text)
 async def process_cloning_source(message: types.Message, state: FSMContext, bot: Bot):
     sticker_set_name = None
+    custom_emoji_ids = []
+    if message.entities:
+        for entity in message.entities:
+            if entity.type == "custom_emoji":
+                custom_emoji_ids.append(entity.custom_emoji_id)
+    if message.caption_entities:
+        for entity in message.caption_entities:
+            if entity.type == "custom_emoji":
+                custom_emoji_ids.append(entity.custom_emoji_id)
+    if message.sticker and message.sticker.custom_emoji_id:
+        custom_emoji_ids.append(message.sticker.custom_emoji_id)
+
     if message.sticker:
         sticker_set_name = message.sticker.set_name
     elif message.text:
@@ -382,7 +394,16 @@ async def process_cloning_source(message: types.Message, state: FSMContext, bot:
         if "addstickers/" in text:
             sticker_set_name = text.split("addstickers/")[1].split()[0]
         elif "/" not in text:
-            sticker_set_name = text
+            if not custom_emoji_ids:
+                sticker_set_name = text
+
+    if not sticker_set_name and custom_emoji_ids:
+        try:
+            stickers = await bot.get_custom_emoji_stickers([custom_emoji_ids[0]])
+            if stickers:
+                sticker_set_name = stickers[0].set_name
+        except Exception as e:
+            logger.error(f"Error fetching custom emoji stickers: {e}")
 
     if not sticker_set_name:
         await message.reply(
@@ -629,8 +650,22 @@ async def handle_incoming_media(message: types.Message, state: FSMContext, bot: 
             return
 
     # Check if it's an emoji or media
+    custom_emoji_ids = []
+    if message.entities:
+        for entity in message.entities:
+            if entity.type == "custom_emoji":
+                custom_emoji_ids.append(entity.custom_emoji_id)
+    if message.caption_entities:
+        for entity in message.caption_entities:
+            if entity.type == "custom_emoji":
+                custom_emoji_ids.append(entity.custom_emoji_id)
+    if message.sticker and message.sticker.custom_emoji_id:
+        custom_emoji_ids.append(message.sticker.custom_emoji_id)
+
     is_emoji = False
     if message.text and len(message.text) <= 2:  # Simple emoji check
+        is_emoji = True
+    if custom_emoji_ids:
         is_emoji = True
 
     if not any(
@@ -650,6 +685,7 @@ async def handle_incoming_media(message: types.Message, state: FSMContext, bot: 
     file_id = None
     emoji = "🖼"
     set_name = None
+    is_source_emoji = False
 
     if message.sticker:
         file_id = message.sticker.file_id
@@ -689,17 +725,35 @@ async def handle_incoming_media(message: types.Message, state: FSMContext, bot: 
         else:
             return  # Not an emoji or link
 
+    if not set_name and custom_emoji_ids:
+        try:
+            stickers = await bot.get_custom_emoji_stickers([custom_emoji_ids[0]])
+            if stickers:
+                set_name = stickers[0].set_name
+                is_source_emoji = True
+                if not message.sticker:
+                    file_id = stickers[0].file_id
+                    emoji = stickers[0].emoji or emoji
+                    if stickers[0].is_animated:
+                        sticker_type = "animated"
+                    elif stickers[0].is_video:
+                        sticker_type = "video"
+                    else:
+                        sticker_type = "static"
+        except Exception as e:
+            logger.error(f"Error fetching custom emoji stickers: {e}")
+
     await state.update_data(
         pending_file_id=file_id,
         pending_emoji=emoji,
         pending_set_name=set_name,
         pending_sticker_type=sticker_type,
-        pending_is_emoji=is_source_emoji if message.sticker else False,
+        pending_is_emoji=is_source_emoji,
     )
 
     await message.reply(
         l10n.get_text(message.from_user.language_code, "msg-what-to-do"),
-        reply_markup=get_copy_menu(message.from_user.language_code),
+        reply_markup=get_copy_menu(message.from_user.language_code, has_pack=bool(set_name)),
     )
 
 
@@ -961,6 +1015,18 @@ async def add_item_to_pack(
 
     # If not provided, get from message
     if not file_id and not is_callback:
+        custom_emoji_ids = []
+        if message.entities:
+            for entity in message.entities:
+                if entity.type == "custom_emoji":
+                    custom_emoji_ids.append(entity.custom_emoji_id)
+        if message.caption_entities:
+            for entity in message.caption_entities:
+                if entity.type == "custom_emoji":
+                    custom_emoji_ids.append(entity.custom_emoji_id)
+        if message.sticker and message.sticker.custom_emoji_id:
+            custom_emoji_ids.append(message.sticker.custom_emoji_id)
+
         if message.sticker:
             file_id = message.sticker.file_id
             emoji = message.sticker.emoji or "😀"
@@ -976,6 +1042,14 @@ async def add_item_to_pack(
         elif message.document:
             file_id = message.document.file_id
             emoji = "📄"
+        elif custom_emoji_ids:
+            try:
+                stickers = await bot.get_custom_emoji_stickers([custom_emoji_ids[0]])
+                if stickers:
+                    file_id = stickers[0].file_id
+                    emoji = stickers[0].emoji or "😀"
+            except Exception as e:
+                logger.error(f"Error fetching custom emoji sticker in add_item_to_pack: {e}")
         elif message.text and len(message.text) <= 2:
             emoji = message.text
 
