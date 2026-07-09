@@ -866,11 +866,14 @@ async def handle_guest_mode_reply(
             # Might be a simple emoji
             emoji = replied.text.strip()
             file_id = None
-        else:
+        elif not custom_emoji_ids:
             # Check for sticker pack name directly
             set_name = replied.text.strip()
             sticker_type = "static"
             file_id = "link"
+        else:
+            # Has custom emojis and text, leave file_id as None to trigger fetch below
+            file_id = None
 
     # If we found custom emoji entities but no file_id yet, fetch them
     if custom_emoji_ids and not file_id:
