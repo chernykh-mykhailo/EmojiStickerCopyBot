@@ -59,6 +59,7 @@ class CopyMode(StatesGroup):
 
 
 @router.message(Command("packs"))
+@router.guest_message(Command("packs"))
 async def cmd_packs(message: types.Message):
     try:
         user_service = container.resolve(UserService)
@@ -139,6 +140,7 @@ async def process_suggested_title(
 
 
 @router.message(PackCreation.waiting_title, F.text)
+@router.guest_message(PackCreation.waiting_title, F.text)
 async def process_title(message: types.Message, state: FSMContext, bot: Bot):
     if not message.text:
         return
@@ -160,6 +162,7 @@ async def process_title(message: types.Message, state: FSMContext, bot: Bot):
 
 
 @router.message(PackCreation.waiting_name, F.text)
+@router.guest_message(PackCreation.waiting_name, F.text)
 async def process_name(message: types.Message, state: FSMContext, bot: Bot):
     if not message.text:
         return
@@ -373,6 +376,7 @@ async def process_item(message: types.Message, state: FSMContext, bot: Bot):
 
 
 @router.message(PackCreation.cloning_source, F.sticker | F.text)
+@router.guest_message(PackCreation.cloning_source, F.sticker | F.text)
 async def process_cloning_source(message: types.Message, state: FSMContext, bot: Bot):
     sticker_set_name = None
     custom_emoji_ids = []
@@ -438,6 +442,7 @@ async def process_cloning_source(message: types.Message, state: FSMContext, bot:
 
 
 @router.message(PackCreation.cloning_title, F.text)
+@router.guest_message(PackCreation.cloning_title, F.text)
 async def process_cloning_title(message: types.Message, state: FSMContext, bot: Bot):
     if not message.text:
         return
@@ -499,6 +504,7 @@ async def finalize_cloning_setup(
 
 
 @router.message(PackCreation.cloning_name, F.text)
+@router.guest_message(PackCreation.cloning_name, F.text)
 async def process_cloning_name(message: types.Message, state: FSMContext, bot: Bot):
     if not message.text:
         return

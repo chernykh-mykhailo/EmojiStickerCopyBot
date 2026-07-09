@@ -8,6 +8,7 @@ router = Router()
 
 
 @router.message(Command("start"))
+@router.guest_message(Command("start"))
 async def cmd_start(message: types.Message):
     user_service = container.resolve(UserService)
     user = await user_service.get_or_create_user(

@@ -259,6 +259,7 @@ def get_cancel_kb(locale: str):
 # --- Handlers ---
 
 @router.message(Command("letterpack"))
+@router.guest_message(Command("letterpack"))
 async def cmd_letterpack(message: types.Message, state: FSMContext):
     await state.clear()
     locale = message.from_user.language_code or "uk"
@@ -374,6 +375,7 @@ async def select_bg_color_cb(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
 @router.message(LetterGeneratorState.choosing_bg_color, F.text)
+@router.guest_message(LetterGeneratorState.choosing_bg_color, F.text)
 async def select_bg_color_txt(message: types.Message, state: FSMContext):
     locale = message.from_user.language_code or "uk"
     color = message.text.strip()
@@ -448,6 +450,7 @@ async def select_text_color_cb(callback: types.CallbackQuery, state: FSMContext)
     await callback.answer()
 
 @router.message(LetterGeneratorState.choosing_text_color, F.text)
+@router.guest_message(LetterGeneratorState.choosing_text_color, F.text)
 async def select_text_color_txt(message: types.Message, state: FSMContext):
     locale = message.from_user.language_code or "uk"
     color = message.text.strip()
@@ -488,6 +491,7 @@ async def select_grad_start_cb(callback: types.CallbackQuery, state: FSMContext)
     await callback.answer()
 
 @router.message(LetterGeneratorState.choosing_gradient_start, F.text)
+@router.guest_message(LetterGeneratorState.choosing_gradient_start, F.text)
 async def select_grad_start_txt(message: types.Message, state: FSMContext):
     locale = message.from_user.language_code or "uk"
     color = message.text.strip()
@@ -528,6 +532,7 @@ async def select_grad_end_cb(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
 @router.message(LetterGeneratorState.choosing_gradient_end, F.text)
+@router.guest_message(LetterGeneratorState.choosing_gradient_end, F.text)
 async def select_grad_end_txt(message: types.Message, state: FSMContext):
     locale = message.from_user.language_code or "uk"
     color = message.text.strip()
@@ -590,6 +595,7 @@ async def select_outline_color_cb(callback: types.CallbackQuery, state: FSMConte
     await callback.answer()
 
 @router.message(LetterGeneratorState.choosing_outline_color, F.text)
+@router.guest_message(LetterGeneratorState.choosing_outline_color, F.text)
 async def select_outline_color_txt(message: types.Message, state: FSMContext):
     locale = message.from_user.language_code or "uk"
     color = message.text.strip()
@@ -610,6 +616,7 @@ async def select_outline_color_txt(message: types.Message, state: FSMContext):
 
 # Title
 @router.message(LetterGeneratorState.waiting_title, F.text)
+@router.guest_message(LetterGeneratorState.waiting_title, F.text)
 async def select_title(message: types.Message, state: FSMContext):
     title = message.text.strip()
     await state.update_data(pack_title=title)
@@ -636,6 +643,7 @@ async def select_name_cb(callback: types.CallbackQuery, state: FSMContext, bot: 
     await callback.answer()
 
 @router.message(LetterGeneratorState.waiting_name, F.text)
+@router.guest_message(LetterGeneratorState.waiting_name, F.text)
 async def select_name_txt(message: types.Message, state: FSMContext, bot: Bot):
     slug = message.text.strip()
     locale = message.from_user.language_code or "uk"
