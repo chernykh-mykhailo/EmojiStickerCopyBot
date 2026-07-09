@@ -801,11 +801,6 @@ async def handle_guest_mode_reply(
 
     locale = user.language_code
 
-    # Show processing message
-    info_msg = await message.reply(
-        l10n.get_text(locale, "msg-guest-mode"),
-    )
-
     # Extract premium content from the replied message
     custom_emoji_ids = []
     if replied.entities:
@@ -886,13 +881,11 @@ async def handle_guest_mode_reply(
             logger.error(f"Error fetching custom emoji stickers in guest mode: {e}")
 
     if not file_id and not set_name:
-        await info_msg.edit_text(
+        await guest_safe_reply(
+            message,
             "❌ " + l10n.get_text(locale, "err-generic", error="Could not extract content from the replied message.")
         )
         return
-
-    # Delete the info message
-    await info_msg.delete()
 
     await state.update_data(
         pending_file_id=file_id,
@@ -902,7 +895,8 @@ async def handle_guest_mode_reply(
         pending_is_emoji=is_source_emoji,
     )
 
-    await message.reply(
+    await guest_safe_reply(
+        message,
         l10n.get_text(locale, "msg-what-to-do"),
         reply_markup=get_copy_menu(
             locale,
@@ -1421,7 +1415,13 @@ async def remove_pack_from_list(callback: types.CallbackQuery, state: FSMContext
 @router.callback_query(F.data == "sticker_cancel")
 async def cancel_creation(callback: types.CallbackQuery, state: FSMContext):
     await state.clear()
-    await callback.message.delete()
+    try:
+        if callback.inline_message_id:
+            await guest_safe_edit_text(callback, '❌ Cancelled.')
+        else:
+            await callback.message.delete()
+    except Exception:
+        pass
     await callback.answer()
 
 

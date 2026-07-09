@@ -2,6 +2,7 @@ from aiogram import Router, types
 from aiogram.filters import Command
 from services.user_service import UserService
 from utils.l10n import l10n
+from utils.guest import guest_safe_answer
 from core.di import container
 
 router = Router()
@@ -19,4 +20,4 @@ async def cmd_start(message: types.Message):
     )
 
     welcome_text = l10n.get_text(user.language_code, "msg-start")
-    await message.answer(welcome_text, parse_mode="HTML")
+    await guest_safe_answer(message, welcome_text, parse_mode="HTML")

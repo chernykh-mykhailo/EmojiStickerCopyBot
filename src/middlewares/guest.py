@@ -20,16 +20,12 @@ class GuestMessageStripMiddleware(BaseMiddleware):
 
         updates = {}
         if text:
-            if text.startswith(bot_mention):
+            if text.startswith(bot_mention) and text[len(bot_mention):].startswith("/"):
                 updates["text"] = text[len(bot_mention):]
-            elif text == bot_mention_short:
-                updates["text"] = ""
         
         if caption:
-            if caption.startswith(bot_mention):
+            if caption.startswith(bot_mention) and caption[len(bot_mention):].startswith("/"):
                 updates["caption"] = caption[len(bot_mention):]
-            elif caption == bot_mention_short:
-                updates["caption"] = ""
 
         if updates:
             event = event.model_copy(update=updates)
