@@ -26,6 +26,9 @@ async def main():
     async with db_helper.engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
+    from middlewares.guest import GuestMessageStripMiddleware
+    dp.guest_message.outer_middleware(GuestMessageStripMiddleware())
+
     # Register routers
     dp.include_router(common.router)
     dp.include_router(packs.router)

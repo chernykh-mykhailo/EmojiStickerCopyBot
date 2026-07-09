@@ -393,6 +393,10 @@ async def process_cloning_source(message: types.Message, state: FSMContext, bot:
 
     if message.sticker:
         sticker_set_name = message.sticker.set_name
+    elif message.reply_to_message and message.reply_to_message.sticker:
+        sticker_set_name = message.reply_to_message.sticker.set_name
+        if message.reply_to_message.sticker.custom_emoji_id:
+            custom_emoji_ids.append(message.reply_to_message.sticker.custom_emoji_id)
     elif message.text:
         text = message.text.strip()
         if "addstickers/" in text:
