@@ -8,4 +8,6 @@ bot = Bot(
     token=config.bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML)
 )
 
-dp = Dispatcher(storage=MemoryStorage())
+from aiogram.fsm.strategy import FSMStrategy
+
+dp = Dispatcher(storage=MemoryStorage(), fsm_strategy=FSMStrategy.GLOBAL_USER)
