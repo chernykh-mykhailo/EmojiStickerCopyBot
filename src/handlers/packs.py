@@ -797,20 +797,31 @@ async def handle_incoming_media(message: types.Message, state: FSMContext, bot: 
             return  # Not an emoji or link
 
     if not set_name and custom_emoji_ids:
+        unique_emoji_ids = list(dict.fromkeys(custom_emoji_ids))
+        if len(unique_emoji_ids) > 1:
+            try:
+                stickers = await bot.get_custom_emoji_stickers(unique_emoji_ids)
+                if stickers:
+                    from keyboards.inline import get_multiple_emojis_keyboard
+                    await guest_safe_reply(
+                        message,
+                        l10n.get_text(message.from_user.language_code, "msg-select-emoji"),
+                        reply_markup=get_multiple_emojis_keyboard(message.from_user.language_code, stickers)
+                    )
+                    return
+            except Exception as e:
+                logger.error(f"Error fetching multiple custom emoji stickers: {e}")
         try:
             stickers = await bot.get_custom_emoji_stickers([custom_emoji_ids[0]])
             if stickers:
                 set_name = stickers[0].set_name
+                file_id = stickers[0].file_id
+                emoji = stickers[0].emoji or "😀"
                 is_source_emoji = True
-                if not message.sticker:
-                    file_id = stickers[0].file_id
-                    emoji = stickers[0].emoji or emoji
-                    if stickers[0].is_animated:
-                        sticker_type = "animated"
-                    elif stickers[0].is_video:
-                        sticker_type = "video"
-                    else:
-                        sticker_type = "static"
+                if stickers[0].is_animated:
+                    sticker_type = "animated"
+                elif stickers[0].is_video:
+                    sticker_type = "video"
         except Exception as e:
             logger.error(f"Error fetching custom emoji stickers: {e}")
 
@@ -916,6 +927,20 @@ async def handle_guest_mode_reply(
 
     # If we found custom emoji entities but no file_id yet, fetch them
     if custom_emoji_ids and not file_id:
+        unique_emoji_ids = list(dict.fromkeys(custom_emoji_ids))
+        if len(unique_emoji_ids) > 1:
+            try:
+                stickers = await bot.get_custom_emoji_stickers(unique_emoji_ids)
+                if stickers:
+                    from keyboards.inline import get_multiple_emojis_keyboard
+                    await guest_safe_reply(
+                        message,
+                        l10n.get_text(locale, "msg-select-emoji"),
+                        reply_markup=get_multiple_emojis_keyboard(locale, stickers)
+                    )
+                    return
+            except Exception as e:
+                logger.error(f"Error fetching multiple custom emoji stickers in guest mode: {e}")
         try:
             stickers = await bot.get_custom_emoji_stickers([custom_emoji_ids[0]])
             if stickers:
@@ -1496,3 +1521,48 @@ async def show_my_packs_for_mode(callback: types.CallbackQuery, state: FSMContex
         ),
     )
     await callback.answer()
+
+
+@router.callback_query(F.data.startswith("select_emoji:"))
+async def process_select_emoji(callback: types.CallbackQuery, state: FSMContext, bot: Bot):
+    emoji_id = callback.data.split(":")[1]
+    
+    try:
+        stickers = await bot.get_custom_emoji_stickers([emoji_id])
+        if not stickers:
+            await guest_safe_edit_text(callback, "❌ Emoji not found.")
+            return
+            
+        s = stickers[0]
+        set_name = s.set_name
+        file_id = s.file_id
+        emoji = s.emoji or "😀"
+        is_source_emoji = True
+        
+        sticker_type = "static"
+        if s.is_animated:
+            sticker_type = "animated"
+        elif s.is_video:
+            sticker_type = "video"
+            
+        await state.update_data(
+            pending_file_id=file_id,
+            pending_emoji=emoji,
+            pending_set_name=set_name,
+            pending_sticker_type=sticker_type,
+            pending_is_emoji=is_source_emoji,
+        )
+        
+        locale = callback.from_user.language_code
+        await guest_safe_edit_text(
+            callback,
+            l10n.get_text(locale, "msg-what-to-do"),
+            reply_markup=get_copy_menu(
+                locale,
+                has_pack=bool(set_name),
+                is_emoji=is_source_emoji,
+            ),
+        )
+    except Exception as e:
+        logger.error(f"Error processing emoji selection: {e}")
+        await guest_safe_edit_text(callback, f"❌ Error: {e}")

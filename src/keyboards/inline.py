@@ -220,6 +220,161 @@ def get_pack_manage_keyboard(locale: str, name: str):
     return builder.as_markup()
 
 
+    if has_pack:
+        builder.button(
+            text=l10n.get_text(locale, "btn-clone-all"),
+            callback_data="copy_step:clone_format",
+        )
+    builder.button(
+        text=l10n.get_text(locale, "btn-quick-create"),
+        callback_data="copy_step:quick_create",
+    )
+    builder.button(
+        text=l10n.get_text(locale, "btn-cancel"), callback_data="sticker_cancel"
+    )
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+def get_format_selection(locale: str, sticker_type: str = "static", is_emoji: bool = False):
+    builder = InlineKeyboardBuilder()
+
+    if sticker_type == "static":
+        orig_callback = "copy_fmt:custom_emoji" if is_emoji else "copy_fmt:regular"
+        alt_callback = "copy_fmt:regular" if is_emoji else "copy_fmt:custom_emoji"
+    elif sticker_type == "animated":
+        orig_callback = "copy_fmt:custom_emoji_anim" if is_emoji else "copy_fmt:animated"
+        alt_callback = "copy_fmt:animated" if is_emoji else "copy_fmt:custom_emoji_anim"
+    else:  # video
+        orig_callback = "copy_fmt:custom_emoji_video" if is_emoji else "copy_fmt:video"
+        alt_callback = "copy_fmt:video" if is_emoji else "copy_fmt:custom_emoji_video"
+
+    alt_text_key = "btn-fmt-sticker" if is_emoji else "btn-fmt-emoji"
+
+    builder.button(
+        text=l10n.get_text(locale, "btn-fmt-original"),
+        callback_data=orig_callback,
+    )
+    builder.button(
+        text=l10n.get_text(locale, alt_text_key),
+        callback_data=alt_callback,
+    )
+    builder.button(
+        text=l10n.get_text(locale, "btn-fmt-emoji-nobg"),
+        callback_data="copy_fmt:emoji_nobg",
+    )
+
+    builder.button(text=l10n.get_text(locale, "btn-back"), callback_data="copy_back")
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+def get_clone_format_selection(locale: str, sticker_type: str = "static", is_emoji: bool = False):
+    builder = InlineKeyboardBuilder()
+
+    if sticker_type == "static":
+        orig_callback = "clone_fmt:custom_emoji" if is_emoji else "clone_fmt:regular"
+        alt_callback = "clone_fmt:regular" if is_emoji else "clone_fmt:custom_emoji"
+    elif sticker_type == "animated":
+        orig_callback = "clone_fmt:custom_emoji_anim" if is_emoji else "clone_fmt:animated"
+        alt_callback = "clone_fmt:animated" if is_emoji else "clone_fmt:custom_emoji_anim"
+    else:  # video
+        orig_callback = "clone_fmt:custom_emoji_video" if is_emoji else "clone_fmt:video"
+        alt_callback = "clone_fmt:video" if is_emoji else "clone_fmt:custom_emoji_video"
+
+    alt_text_key = "btn-fmt-sticker" if is_emoji else "btn-fmt-emoji"
+
+    builder.button(
+        text=l10n.get_text(locale, "btn-fmt-original"),
+        callback_data=orig_callback,
+    )
+    builder.button(
+        text=l10n.get_text(locale, alt_text_key),
+        callback_data=alt_callback,
+    )
+    builder.button(
+        text=l10n.get_text(locale, "btn-fmt-emoji-nobg"),
+        callback_data="clone_fmt:emoji_nobg",
+    )
+
+    builder.button(text=l10n.get_text(locale, "btn-back"), callback_data="copy_back")
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+def get_first_pack_keyboard(locale: str):
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text=l10n.get_text(locale, "btn-create-first-regular"),
+        callback_data="create_first:regular",
+    )
+    builder.button(
+        text=l10n.get_text(locale, "btn-create-first-emoji"),
+        callback_data="create_first:custom_emoji",
+    )
+    builder.button(
+        text=l10n.get_text(locale, "btn-cancel"), callback_data="sticker_cancel"
+    )
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+def get_user_packs_keyboard(packs: list, locale: str, prefix: str = "target_pack"):
+    builder = InlineKeyboardBuilder()
+    for pack in packs:
+        builder.button(text=pack.title, callback_data=f"{prefix}:{pack.name}")
+
+    builder.button(
+        text=l10n.get_text(locale, "btn-create-new"),
+        callback_data="create_new_from_copy",
+    )
+
+    builder.button(text=l10n.get_text(locale, "btn-back"), callback_data="copy_back")
+    builder.button(
+        text=l10n.get_text(locale, "btn-cancel"), callback_data="sticker_cancel"
+    )
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+def get_disable_keyboard(locale: str):
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text=l10n.get_text(locale, "btn-disable"), callback_data="copy_mode_off"
+    )
+    return builder.as_markup()
+
+
+def get_open_pack_keyboard(locale: str, name: str):
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text=l10n.get_text(locale, "btn-open-pack"),
+        url=f"https://t.me/addstickers/{name}",
+    )
+    return builder.as_markup()
+
+
+def get_pack_manage_keyboard(locale: str, name: str):
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text=l10n.get_text(locale, "btn-open-pack"),
+        url=f"https://t.me/addstickers/{name}",
+    )
+    builder.button(
+        text=l10n.get_text(locale, "btn-copy-to-this"),
+        callback_data=f"activate_mode:{name}",
+    )
+    builder.button(
+        text=l10n.get_text(locale, "btn-remove-from-list"),
+        callback_data=f"remove_pack:{name}",
+    )
+    builder.button(
+        text=l10n.get_text(locale, "btn-back"), callback_data="sticker_my_packs"
+    )
+    builder.adjust(1)
+    return builder.as_markup()
+
+
 def get_title_suggestions_keyboard(locale: str, suggestions: list[str]):
     builder = InlineKeyboardBuilder()
     for suggestion in suggestions:
@@ -229,4 +384,20 @@ def get_title_suggestions_keyboard(locale: str, suggestions: list[str]):
         text=l10n.get_text(locale, "btn-cancel"), callback_data="sticker_cancel"
     )
     builder.adjust(2)
+    return builder.as_markup()
+
+def get_multiple_emojis_keyboard(locale: str, stickers: list):
+    builder = InlineKeyboardBuilder()
+    for s in stickers:
+        builder.button(
+            text=s.emoji or "😀",
+            callback_data=f"select_emoji:{s.custom_emoji_id}",
+            icon_custom_emoji_id=s.custom_emoji_id
+        )
+    
+    # Add a cancel button
+    builder.button(
+        text=l10n.get_text(locale, "btn-cancel"), callback_data="sticker_cancel"
+    )
+    builder.adjust(3)
     return builder.as_markup()
