@@ -19,6 +19,8 @@ async def guest_safe_answer(message: types.Message, text: str, **kwargs):
         return await message.answer(text, **kwargs)
 
 async def guest_safe_reply(message: types.Message, text: str, **kwargs):
+    import logging
+    logging.info(f"GUEST_QUERY_ID: {getattr(message, 'guest_query_id', None)}")
     if getattr(message, "guest_query_id", None):
         return await message.answer_guest_query(
             result=InlineQueryResultArticle(
