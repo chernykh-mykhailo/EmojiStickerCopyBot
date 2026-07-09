@@ -390,7 +390,7 @@ def get_multiple_emojis_keyboard(locale: str, stickers: list):
     builder = InlineKeyboardBuilder()
     for s in stickers:
         builder.button(
-            text=s.emoji or "😀",
+            text=" ",  # Empty text so only the custom emoji icon is shown
             callback_data=f"select_emoji:{s.custom_emoji_id}",
             icon_custom_emoji_id=s.custom_emoji_id
         )
