@@ -648,6 +648,15 @@ async def run_cloning(
     | F.document
     | (F.text & ~F.text.startswith("/")),
 )
+@router.guest_message(
+    ~StateFilter(LetterGeneratorState),
+    F.sticker
+    | F.photo
+    | F.video
+    | F.animation
+    | F.document
+    | (F.text & ~F.text.startswith("/")),
+)
 async def handle_incoming_media(message: types.Message, state: FSMContext, bot: Bot):
     # If in active copy mode, add immediately
     current_state = await state.get_state()
