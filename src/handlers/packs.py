@@ -94,14 +94,14 @@ async def select_type(callback: types.CallbackQuery, state: FSMContext):
 
     if sticker_type == "clone":
         await state.set_state(PackCreation.cloning_source)
-        await callback.message.edit_text(
+        await guest_safe_edit_text(callback, 
             l10n.get_text(user.language_code, "prompt-copy"),
             reply_markup=get_cancel_keyboard(user.language_code),
         )
     else:
         await state.set_state(PackCreation.waiting_title)
         suggestions = await get_unique_suggestions()
-        await callback.message.edit_text(
+        await guest_safe_edit_text(callback, 
             l10n.get_text(user.language_code, "prompt-title"),
             reply_markup=get_title_suggestions_keyboard(
                 user.language_code, suggestions
@@ -124,7 +124,7 @@ async def process_suggested_title(
             await finalize_pack_setup(callback, state, bot, slug, title)
         else:
             await state.set_state(PackCreation.waiting_name)
-            await callback.message.edit_text(
+            await guest_safe_edit_text(callback, 
                 l10n.get_text(callback.from_user.language_code, "prompt-name")
             )
     elif current_state == PackCreation.cloning_title:
@@ -134,7 +134,7 @@ async def process_suggested_title(
             await finalize_cloning_setup(callback, state, bot, slug, title)
         else:
             await state.set_state(PackCreation.cloning_name)
-            await callback.message.edit_text(
+            await guest_safe_edit_text(callback, 
                 l10n.get_text(callback.from_user.language_code, "prompt-name")
             )
     await callback.answer()
@@ -924,7 +924,7 @@ async def process_copy_step(callback: types.CallbackQuery, state: FSMContext, bo
 
     if step == "format":
         is_emoji = data.get("pending_is_emoji", False)
-        await callback.message.edit_text(
+        await guest_safe_edit_text(callback, 
             l10n.get_text(callback.from_user.language_code, "msg-select-format"),
             reply_markup=get_format_selection(
                 callback.from_user.language_code, sticker_type, is_emoji=is_emoji
@@ -933,7 +933,7 @@ async def process_copy_step(callback: types.CallbackQuery, state: FSMContext, bo
         )
     elif step == "clone_format":
         is_emoji = data.get("pending_is_emoji", False)
-        await callback.message.edit_text(
+        await guest_safe_edit_text(callback, 
             l10n.get_text(callback.from_user.language_code, "msg-select-format"),
             reply_markup=get_clone_format_selection(
                 callback.from_user.language_code, sticker_type, is_emoji=is_emoji
@@ -943,7 +943,7 @@ async def process_copy_step(callback: types.CallbackQuery, state: FSMContext, bo
     elif step == "back":
         set_name = data.get("pending_set_name")
         is_emoji = data.get("pending_is_emoji", False)
-        await callback.message.edit_text(
+        await guest_safe_edit_text(callback, 
             l10n.get_text(callback.from_user.language_code, "msg-what-to-do"),
             reply_markup=get_copy_menu(
                 callback.from_user.language_code, bool(set_name), is_emoji=is_emoji
@@ -1039,7 +1039,7 @@ async def process_copy_format(callback: types.CallbackQuery, state: FSMContext):
     if data.get("cloning_mode"):
         await state.set_state(PackCreation.cloning_title)
         suggestions = await get_unique_suggestions()
-        await callback.message.edit_text(
+        await guest_safe_edit_text(callback, 
             l10n.get_text(callback.from_user.language_code, "prompt-title"),
             reply_markup=get_title_suggestions_keyboard(
                 callback.from_user.language_code, suggestions
@@ -1064,12 +1064,12 @@ async def process_copy_format(callback: types.CallbackQuery, state: FSMContext):
     compatible_packs = [p for p in packs if p.set_type == target_type]
 
     if not compatible_packs:
-        await callback.message.edit_text(
+        await guest_safe_edit_text(callback, 
             l10n.get_text(callback.from_user.language_code, "msg-no-packs-create"),
             reply_markup=get_first_pack_keyboard(callback.from_user.language_code),
         )
     else:
-        await callback.message.edit_text(
+        await guest_safe_edit_text(callback, 
             l10n.get_text(callback.from_user.language_code, "msg-select-target"),
             reply_markup=get_user_packs_keyboard(
                 compatible_packs, callback.from_user.language_code
@@ -1084,7 +1084,7 @@ async def start_first_pack(callback: types.CallbackQuery, state: FSMContext):
     await state.update_data(sticker_type=sticker_type)
     await state.set_state(PackCreation.waiting_name)
 
-    await callback.message.edit_text(
+    await guest_safe_edit_text(callback, 
         l10n.get_text(callback.from_user.language_code, "prompt-name"),
         reply_markup=get_cancel_keyboard(callback.from_user.language_code),
     )
@@ -1097,13 +1097,13 @@ async def start_copy_to(callback: types.CallbackQuery, state: FSMContext):
     packs = await sticker_repo.get_by_creator(callback.from_user.id)
 
     if not packs:
-        await callback.message.edit_text(
+        await guest_safe_edit_text(callback, 
             l10n.get_text(callback.from_user.language_code, "msg-no-packs-create"),
             reply_markup=get_first_pack_keyboard(callback.from_user.language_code),
         )
         return
 
-    await callback.message.edit_text(
+    await guest_safe_edit_text(callback, 
         l10n.get_text(callback.from_user.language_code, "msg-select-target"),
         reply_markup=get_user_packs_keyboard(packs, callback.from_user.language_code),
     )
@@ -1151,7 +1151,7 @@ async def handle_create_new_from_copy(
 
     # Show title prompt with suggestions
     suggestions = await get_unique_suggestions()
-    await callback.message.edit_text(
+    await guest_safe_edit_text(callback, 
         l10n.get_text(callback.from_user.language_code, "prompt-title"),
         reply_markup=get_title_suggestions_keyboard(
             callback.from_user.language_code, suggestions
@@ -1283,7 +1283,7 @@ async def add_item_to_pack(
 
 @router.callback_query(F.data == "sticker_create_menu")
 async def handle_create_menu(callback: types.CallbackQuery):
-    await callback.message.edit_text(
+    await guest_safe_edit_text(callback, 
         l10n.get_text(callback.from_user.language_code, "msg-select-type"),
         reply_markup=get_create_keyboard(callback.from_user.language_code),
     )
@@ -1292,7 +1292,7 @@ async def handle_create_menu(callback: types.CallbackQuery):
 
 @router.callback_query(F.data == "packs-menu")
 async def handle_packs_menu(callback: types.CallbackQuery):
-    await callback.message.edit_text(
+    await guest_safe_edit_text(callback, 
         l10n.get_text(callback.from_user.language_code, "msg-my-packs"),
         reply_markup=get_packs_keyboard(callback.from_user.language_code),
     )
@@ -1309,7 +1309,7 @@ async def show_pack_details(callback: types.CallbackQuery, state: FSMContext):
         await callback.answer("❌ Pack not found.", show_alert=True)
         return
 
-    await callback.message.edit_text(
+    await guest_safe_edit_text(callback, 
         l10n.get_text(
             callback.from_user.language_code, "msg-pack-manage", title=pack_info.title
         ),
@@ -1339,7 +1339,7 @@ async def activate_copy_mode(callback: types.CallbackQuery, state: FSMContext):
 
     await state.update_data(target_pack=pack_name, target_format=target_fmt)
 
-    await callback.message.edit_text(
+    await guest_safe_edit_text(callback, 
         l10n.get_text(
             callback.from_user.language_code, "msg-copy-mode-on", title=pack_info.title
         ),
@@ -1351,7 +1351,7 @@ async def activate_copy_mode(callback: types.CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "copy_mode_off")
 async def deactivate_copy_mode(callback: types.CallbackQuery, state: FSMContext):
     await state.clear()
-    await callback.message.edit_text(
+    await guest_safe_edit_text(callback, 
         l10n.get_text(callback.from_user.language_code, "msg-copy-mode-off")
     )
     await callback.answer()
@@ -1363,7 +1363,7 @@ async def process_copy_back(callback: types.CallbackQuery, state: FSMContext):
     if data.get("pending_file_id") or data.get("pending_emoji"):
         set_name = data.get("pending_set_name")
         is_emoji = data.get("pending_is_emoji", False)
-        await callback.message.edit_text(
+        await guest_safe_edit_text(callback, 
             l10n.get_text(callback.from_user.language_code, "msg-what-to-do"),
             reply_markup=get_copy_menu(
                 callback.from_user.language_code, bool(set_name), is_emoji=is_emoji
@@ -1379,7 +1379,7 @@ async def process_copy_back(callback: types.CallbackQuery, state: FSMContext):
             callback.from_user.full_name,
             callback.from_user.language_code or "uk",
         )
-        await callback.message.edit_text(
+        await guest_safe_edit_text(callback, 
             l10n.get_text(user.language_code, "msg-my-packs"),
             reply_markup=get_packs_keyboard(user.language_code),
             parse_mode="HTML",
@@ -1393,7 +1393,7 @@ async def finish_creation(callback: types.CallbackQuery, state: FSMContext, bot:
     me = await bot.get_me()
     full_name = f"{data.get('pack_name_short')}_by_{me.username}"
 
-    await callback.message.edit_text(
+    await guest_safe_edit_text(callback, 
         l10n.get_text(
             callback.from_user.language_code,
             "create-success",
@@ -1415,7 +1415,7 @@ async def remove_pack_from_list(callback: types.CallbackQuery, state: FSMContext
 
     await pack_service.delete_pack(pack_name)
 
-    await callback.message.edit_text(
+    await guest_safe_edit_text(callback, 
         l10n.get_text(callback.from_user.language_code, "msg-pack-removed"),
         reply_markup=get_packs_keyboard(callback.from_user.language_code),
     )
@@ -1441,13 +1441,13 @@ async def show_my_packs_for_mode(callback: types.CallbackQuery, state: FSMContex
     packs = await sticker_repo.get_by_creator(callback.from_user.id)
 
     if not packs:
-        await callback.message.edit_text(
+        await guest_safe_edit_text(callback, 
             l10n.get_text(callback.from_user.language_code, "msg-no-packs-create"),
             reply_markup=get_first_pack_keyboard(callback.from_user.language_code),
         )
         return
 
-    await callback.message.edit_text(
+    await guest_safe_edit_text(callback, 
         l10n.get_text(callback.from_user.language_code, "btn-my-packs"),
         reply_markup=get_user_packs_keyboard(
             packs, callback.from_user.language_code, prefix="pack_details"
