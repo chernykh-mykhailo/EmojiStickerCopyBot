@@ -12,6 +12,7 @@ from services.sticker_service import StickerService
 from services.user_service import UserService
 from database.repositories.sticker_repo import StickerRepository
 from utils.l10n import l10n
+from utils.guest import guest_safe_reply, guest_safe_edit_text
 from utils.image import ImageProcessor
 from keyboards.inline import (
     get_packs_keyboard,
