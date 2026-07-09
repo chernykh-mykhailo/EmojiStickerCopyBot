@@ -70,13 +70,13 @@ async def cmd_packs(message: types.Message):
             message.from_user.full_name,
             message.from_user.language_code or "uk",
         )
-        await message.answer(
+        await guest_safe_answer(message, 
             l10n.get_text(user.language_code, "msg-my-packs"),
             reply_markup=get_packs_keyboard(user.language_code),
         )
     except Exception as e:
         logger.exception(f"Error in /packs command: {e}")
-        await message.answer(f"❌ Помилка: {e}")
+        await guest_safe_answer(message, f"❌ Помилка: {e}")
 
 
 @router.callback_query(F.data.startswith("sticker_type:"))
@@ -157,7 +157,7 @@ async def process_title(message: types.Message, state: FSMContext, bot: Bot):
     else:
         # Title is not good for link, ask for one
         await state.set_state(PackCreation.waiting_name)
-        await message.reply(
+        await guest_safe_reply(message, 
             l10n.get_text(message.from_user.language_code, "prompt-name")
         )
 
@@ -169,7 +169,7 @@ async def process_name(message: types.Message, state: FSMContext, bot: Bot):
         return
     name = message.text.strip()
     if not re.match(r"^[a-zA-Z0-9_]+$", name):
-        await message.reply(
+        await guest_safe_reply(message, 
             l10n.get_text(message.from_user.language_code, "err-invalid-name")
         )
         return
@@ -230,7 +230,8 @@ async def finalize_pack_setup(
             )
 
             if isinstance(event, types.CallbackQuery):
-                await event.message.edit_text(
+                await guest_safe_edit_text(
+                    event,
                     l10n.get_text(
                         user.language_code,
                         "create-success",
@@ -241,7 +242,8 @@ async def finalize_pack_setup(
                     parse_mode="HTML",
                 )
             else:
-                await event.answer(
+                await guest_safe_reply(
+                    event,
                     l10n.get_text(
                         user.language_code,
                         "create-success",
@@ -273,17 +275,34 @@ async def finalize_pack_setup(
             )
             await state.set_state(PackCreation.adding_items)
 
-            await reply_to.reply(
-                l10n.get_text(user.language_code, "prompt-media", title=title),
-                reply_markup=get_done_keyboard(user.language_code),
-                parse_mode="HTML",
-            )
+            if isinstance(event, types.CallbackQuery):
+                await guest_safe_edit_text(
+                    event,
+                    l10n.get_text(user.language_code, "prompt-media", title=title),
+                    reply_markup=get_done_keyboard(user.language_code),
+                    parse_mode="HTML",
+                )
+            else:
+                await guest_safe_reply(
+                    event,
+                    l10n.get_text(user.language_code, "prompt-media", title=title),
+                    reply_markup=get_done_keyboard(user.language_code),
+                    parse_mode="HTML",
+                )
     except Exception as e:
         logger.exception(f"Error in finalize_pack_setup: {e}")
-        await reply_to.reply(
-            l10n.get_text(user.language_code, "err-generic", error=html.quote(str(e))),
-            parse_mode="HTML",
-        )
+        if isinstance(event, types.CallbackQuery):
+            await guest_safe_edit_text(
+                event,
+                l10n.get_text(user.language_code, "err-generic", error=html.quote(str(e))),
+                parse_mode="HTML",
+            )
+        else:
+            await guest_safe_reply(
+                event,
+                l10n.get_text(user.language_code, "err-generic", error=html.quote(str(e))),
+                parse_mode="HTML",
+            )
 
 
 @router.message(
@@ -319,7 +338,7 @@ async def process_item(message: types.Message, state: FSMContext, bot: Bot):
         # Check if it's an image or video file
         mime = message.document.mime_type or ""
         if not (mime.startswith("image/") or mime.startswith("video/")):
-            await message.reply(
+            await guest_safe_reply(message, 
                 "❌ This file type is not supported. Please send an image or video."
             )
             return
@@ -328,7 +347,7 @@ async def process_item(message: types.Message, state: FSMContext, bot: Bot):
     else:
         return
 
-    proc_msg = await message.answer(
+    proc_msg = await guest_safe_answer(message, 
         l10n.get_text(message.from_user.language_code, "processing-item")
     )
 
@@ -364,7 +383,7 @@ async def process_item(message: types.Message, state: FSMContext, bot: Bot):
                 logger.warning(f"Failed to delete placeholder: {e}")
 
         await proc_msg.delete()
-        await message.answer(
+        await guest_safe_answer(message, 
             l10n.get_text(message.from_user.language_code, "item-added", count="?")
         )
     except Exception as e:
@@ -415,7 +434,7 @@ async def process_cloning_source(message: types.Message, state: FSMContext, bot:
             logger.error(f"Error fetching custom emoji stickers: {e}")
 
     if not sticker_set_name:
-        await message.reply(
+        await guest_safe_reply(message, 
             "❌ Please send a sticker or a valid pack name.", parse_mode="HTML"
         )
         return
@@ -432,7 +451,7 @@ async def process_cloning_source(message: types.Message, state: FSMContext, bot:
         if source_set.title not in suggestions:
             suggestions.insert(0, source_set.title)
 
-        await message.reply(
+        await guest_safe_reply(message, 
             l10n.get_text(message.from_user.language_code, "prompt-title"),
             reply_markup=get_title_suggestions_keyboard(
                 message.from_user.language_code, suggestions[:4]
@@ -440,7 +459,7 @@ async def process_cloning_source(message: types.Message, state: FSMContext, bot:
             parse_mode="HTML",
         )
     except Exception as e:
-        await message.reply(
+        await guest_safe_reply(message, 
             l10n.get_text(message.from_user.language_code, "err-generic", error=str(e)),
             parse_mode="HTML",
         )
@@ -462,7 +481,7 @@ async def process_cloning_title(message: types.Message, state: FSMContext, bot: 
     else:
         # Title is not good for link, ask for one
         await state.set_state(PackCreation.cloning_name)
-        await message.reply(
+        await guest_safe_reply(message, 
             l10n.get_text(message.from_user.language_code, "prompt-name"),
             parse_mode="HTML",
         )
@@ -486,12 +505,22 @@ async def finalize_cloning_setup(
         pack_title=title, pack_name_short=name_short, target_format=target_format
     )
     user = event.from_user
-    reply_to = event.message if isinstance(event, types.CallbackQuery) else event
+    text = l10n.get_text(user.language_code, "copy-started", title=title, name=full_name)
+    progress_msg_id = None
+    inline_msg_id = None
 
-    msg = await reply_to.reply(
-        l10n.get_text(user.language_code, "copy-started", title=title, name=full_name),
-        parse_mode="HTML",
-    )
+    if isinstance(event, types.CallbackQuery):
+        msg = await guest_safe_edit_text(event, text, parse_mode="HTML")
+        if event.inline_message_id:
+            inline_msg_id = event.inline_message_id
+        elif isinstance(msg, types.Message):
+            progress_msg_id = msg.message_id
+        elif getattr(event, "message", None):
+            progress_msg_id = event.message.message_id
+    else:
+        msg = await guest_safe_reply(event, text, parse_mode="HTML")
+        if isinstance(msg, types.Message):
+            progress_msg_id = msg.message_id
 
     asyncio.create_task(
         run_cloning(
@@ -502,7 +531,8 @@ async def finalize_cloning_setup(
             target_title=title,
             locale=user.language_code,
             target_format=target_format,
-            progress_msg_id=msg.message_id,
+            progress_msg_id=progress_msg_id,
+            inline_message_id=inline_msg_id,
         )
     )
     await state.clear()
@@ -515,7 +545,7 @@ async def process_cloning_name(message: types.Message, state: FSMContext, bot: B
         return
     name_short = message.text.strip()
     if not re.match(r"^[a-zA-Z][a-zA-Z0-9_]*$", name_short):
-        await message.reply(
+        await guest_safe_reply(message, 
             l10n.get_text(message.from_user.language_code, "err-invalid-name"),
             parse_mode="HTML",
         )
@@ -533,8 +563,9 @@ async def run_cloning(
     target_name: str,
     target_title: str,
     locale: str,
-    target_format: str = "regular",
+    target_format: str,
     progress_msg_id: int = None,
+    inline_message_id: str = None,
 ):
     pack_service = container.resolve(PackService)
     sticker_service = container.resolve(StickerService)
@@ -600,7 +631,7 @@ async def run_cloning(
             await pack_service.add_sticker(user_id, target_name, input_sticker)
 
             # Update progress every 5 stickers or last one
-            if progress_msg_id and (i % 5 == 0 or i == total):
+            if (progress_msg_id or inline_message_id) and (i % 5 == 0 or i == total):
                 try:
                     text = l10n.get_text(
                         locale,
@@ -611,13 +642,21 @@ async def run_cloning(
                         total=total,
                         percent=int((i / total) * 100),
                     )
-                    await bot.edit_message_text(
-                        text,
-                        chat_id=user_id,
-                        message_id=progress_msg_id,
-                        reply_markup=get_open_pack_keyboard(locale, target_name),
-                        parse_mode="HTML",
-                    )
+                    if inline_message_id:
+                        await bot.edit_message_text(
+                            text,
+                            inline_message_id=inline_message_id,
+                            reply_markup=get_open_pack_keyboard(locale, target_name),
+                            parse_mode="HTML",
+                        )
+                    else:
+                        await bot.edit_message_text(
+                            text,
+                            chat_id=user_id,
+                            message_id=progress_msg_id,
+                            reply_markup=get_open_pack_keyboard(locale, target_name),
+                            parse_mode="HTML",
+                        )
                 except Exception:
                     pass  # Ignore rate limits or message not changed
 
@@ -783,7 +822,7 @@ async def handle_incoming_media(message: types.Message, state: FSMContext, bot: 
         pending_is_emoji=is_source_emoji,
     )
 
-    await message.reply(
+    await guest_safe_reply(message, 
         l10n.get_text(message.from_user.language_code, "msg-what-to-do"),
         reply_markup=get_copy_menu(
             message.from_user.language_code,
@@ -1224,7 +1263,7 @@ async def add_item_to_pack(
     # Get pack info to determine type
     pack_info = await sticker_repo.get_by_name(pack_name)
     if not pack_info:
-        await message.answer("❌ Pack not found in database.")
+        await guest_safe_answer(message, "❌ Pack not found in database.")
         return
 
     try:
@@ -1239,7 +1278,7 @@ async def add_item_to_pack(
                     )
                 )
             else:
-                proc_msg = await message.answer(
+                proc_msg = await guest_safe_answer(message, 
                     l10n.get_text(
                         message.from_user.language_code,
                         "msg-copying-one",
@@ -1272,7 +1311,7 @@ async def add_item_to_pack(
             elif proc_msg:
                 await proc_msg.edit_text(msg_text)
         else:
-            await message.answer("❌ Support for text-only items coming soon.")
+            await guest_safe_answer(message, "❌ Support for text-only items coming soon.")
     except Exception as e:
         logger.exception(f"Error in add_item_to_pack: {e}")
         err_msg = l10n.get_text(
