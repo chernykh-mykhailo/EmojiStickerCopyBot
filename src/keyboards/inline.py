@@ -59,10 +59,11 @@ def get_done_keyboard(locale: str):
     return builder.as_markup()
 
 
-def get_copy_menu(locale: str, has_pack: bool = True):
+def get_copy_menu(locale: str, has_pack: bool = True, is_emoji: bool = False):
     builder = InlineKeyboardBuilder()
+    btn_text_key = "btn-copy-one-emoji" if is_emoji else "btn-copy-one"
     builder.button(
-        text=l10n.get_text(locale, "btn-copy-one"), callback_data="copy_step:format"
+        text=l10n.get_text(locale, btn_text_key), callback_data="copy_step:format"
     )
     if has_pack:
         builder.button(

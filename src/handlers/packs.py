@@ -649,6 +649,17 @@ async def handle_incoming_media(message: types.Message, state: FSMContext, bot: 
             await add_item_to_pack(message, target_pack, state, bot)
             return
 
+    # --- GUEST MODE: Check if this is a reply to premium content ---
+    if message.reply_to_message and message.text:
+        # Check if user replied with bot's username (or just part of it)
+        me = await bot.get_me()
+        bot_username = me.username.lower()
+        user_text = message.text.strip().lower()
+        # Match @username or just username in the reply
+        if bot_username in user_text or f"@{bot_username}" in user_text:
+            await handle_guest_mode_reply(message, state, bot, me)
+            return
+
     # Check if it's an emoji or media
     custom_emoji_ids = []
     if message.entities:
@@ -662,11 +673,12 @@ async def handle_incoming_media(message: types.Message, state: FSMContext, bot: 
     if message.sticker and message.sticker.custom_emoji_id:
         custom_emoji_ids.append(message.sticker.custom_emoji_id)
 
-    is_emoji = False
+    has_custom_emoji = bool(custom_emoji_ids)
+    is_text_emoji = False
     if message.text and len(message.text) <= 2:  # Simple emoji check
-        is_emoji = True
-    if custom_emoji_ids:
-        is_emoji = True
+        is_text_emoji = True
+    if has_custom_emoji:
+        is_text_emoji = True
 
     if not any(
         [
@@ -675,7 +687,7 @@ async def handle_incoming_media(message: types.Message, state: FSMContext, bot: 
             message.video,
             message.animation,
             message.document,
-            is_emoji,
+            is_text_emoji,
         ]
     ):
         return
@@ -720,7 +732,7 @@ async def handle_incoming_media(message: types.Message, state: FSMContext, bot: 
             # We don't know the type yet, will fetch on clone
             sticker_type = "static"
             file_id = "link"
-        elif is_emoji:
+        elif is_text_emoji:
             emoji = message.text
         else:
             return  # Not an emoji or link
@@ -753,7 +765,140 @@ async def handle_incoming_media(message: types.Message, state: FSMContext, bot: 
 
     await message.reply(
         l10n.get_text(message.from_user.language_code, "msg-what-to-do"),
-        reply_markup=get_copy_menu(message.from_user.language_code, has_pack=bool(set_name)),
+        reply_markup=get_copy_menu(
+            message.from_user.language_code,
+            has_pack=bool(set_name),
+            is_emoji=is_source_emoji,
+        ),
+    )
+
+
+async def handle_guest_mode_reply(
+    message: types.Message, state: FSMContext, bot: Bot, me: types.User
+):
+    """Handle guest mode: user replies with bot username to premium content"""
+    replied = message.reply_to_message
+    if not replied:
+        return
+
+    user_service = container.resolve(UserService)
+    user = await user_service.get_or_create_user(
+        message.from_user.id,
+        message.from_user.username,
+        message.from_user.full_name,
+        message.from_user.language_code or "uk",
+    )
+
+    locale = user.language_code
+
+    # Show processing message
+    info_msg = await message.reply(
+        l10n.get_text(locale, "msg-guest-mode"),
+    )
+
+    # Extract premium content from the replied message
+    custom_emoji_ids = []
+    if replied.entities:
+        for entity in replied.entities:
+            if entity.type == "custom_emoji":
+                custom_emoji_ids.append(entity.custom_emoji_id)
+    if replied.caption_entities:
+        for entity in replied.caption_entities:
+            if entity.type == "custom_emoji":
+                custom_emoji_ids.append(entity.custom_emoji_id)
+    if replied.sticker and replied.sticker.custom_emoji_id:
+        custom_emoji_ids.append(replied.sticker.custom_emoji_id)
+
+    sticker_type = "static"
+    file_id = None
+    emoji = "🖼"
+    set_name = None
+    is_source_emoji = False
+
+    if replied.sticker:
+        file_id = replied.sticker.file_id
+        emoji = replied.sticker.emoji or "😀"
+        set_name = replied.sticker.set_name
+        is_source_emoji = replied.sticker.type == "custom_emoji"
+        if replied.sticker.is_animated:
+            sticker_type = "animated"
+        elif replied.sticker.is_video:
+            sticker_type = "video"
+    elif replied.photo:
+        file_id = replied.photo[-1].file_id
+    elif replied.video:
+        file_id = replied.video.file_id
+        sticker_type = "video"
+        emoji = "🎥"
+    elif replied.animation:
+        file_id = replied.animation.file_id
+        sticker_type = "video"
+        emoji = "✨"
+    elif replied.document:
+        mime = replied.document.mime_type or ""
+        if mime.startswith("video/"):
+            sticker_type = "video"
+        file_id = replied.document.file_id
+        emoji = "📄"
+    elif replied.text:
+        # Check for sticker pack links in text
+        pack_match = re.search(r"t\.me/addstickers/([a-zA-Z0-9_]+)", replied.text)
+        if pack_match:
+            set_name = pack_match.group(1)
+            sticker_type = "static"
+            file_id = "link"
+        elif len(replied.text.strip()) <= 2:
+            # Might be a simple emoji
+            emoji = replied.text.strip()
+            file_id = None
+        else:
+            # Check for sticker pack name directly
+            set_name = replied.text.strip()
+            sticker_type = "static"
+            file_id = "link"
+
+    # If we found custom emoji entities but no file_id yet, fetch them
+    if custom_emoji_ids and not file_id:
+        try:
+            stickers = await bot.get_custom_emoji_stickers([custom_emoji_ids[0]])
+            if stickers:
+                set_name = stickers[0].set_name
+                is_source_emoji = True
+                file_id = stickers[0].file_id
+                emoji = stickers[0].emoji or emoji
+                if stickers[0].is_animated:
+                    sticker_type = "animated"
+                elif stickers[0].is_video:
+                    sticker_type = "video"
+                else:
+                    sticker_type = "static"
+        except Exception as e:
+            logger.error(f"Error fetching custom emoji stickers in guest mode: {e}")
+
+    if not file_id and not set_name:
+        await info_msg.edit_text(
+            "❌ " + l10n.get_text(locale, "err-generic", error="Could not extract content from the replied message.")
+        )
+        return
+
+    # Delete the info message
+    await info_msg.delete()
+
+    await state.update_data(
+        pending_file_id=file_id,
+        pending_emoji=emoji,
+        pending_set_name=set_name,
+        pending_sticker_type=sticker_type,
+        pending_is_emoji=is_source_emoji,
+    )
+
+    await message.reply(
+        l10n.get_text(locale, "msg-what-to-do"),
+        reply_markup=get_copy_menu(
+            locale,
+            has_pack=bool(set_name),
+            is_emoji=is_source_emoji,
+        ),
     )
 
 
@@ -783,10 +928,11 @@ async def process_copy_step(callback: types.CallbackQuery, state: FSMContext, bo
         )
     elif step == "back":
         set_name = data.get("pending_set_name")
+        is_emoji = data.get("pending_is_emoji", False)
         await callback.message.edit_text(
             l10n.get_text(callback.from_user.language_code, "msg-what-to-do"),
             reply_markup=get_copy_menu(
-                callback.from_user.language_code, bool(set_name)
+                callback.from_user.language_code, bool(set_name), is_emoji=is_emoji
             ),
             parse_mode="HTML",
         )
@@ -1202,10 +1348,11 @@ async def process_copy_back(callback: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
     if data.get("pending_file_id") or data.get("pending_emoji"):
         set_name = data.get("pending_set_name")
+        is_emoji = data.get("pending_is_emoji", False)
         await callback.message.edit_text(
             l10n.get_text(callback.from_user.language_code, "msg-what-to-do"),
             reply_markup=get_copy_menu(
-                callback.from_user.language_code, bool(set_name)
+                callback.from_user.language_code, bool(set_name), is_emoji=is_emoji
             ),
             parse_mode="HTML",
         )
