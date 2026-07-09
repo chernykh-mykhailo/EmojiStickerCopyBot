@@ -389,8 +389,9 @@ def get_title_suggestions_keyboard(locale: str, suggestions: list[str]):
 def get_multiple_emojis_keyboard(locale: str, stickers: list):
     builder = InlineKeyboardBuilder()
     for s in stickers:
+        clean_name = s.set_name.split("_by_")[0].replace("_", " ") if s.set_name else "Emoji"
         builder.button(
-            text=" ",  # Empty text so only the custom emoji icon is shown
+            text=clean_name,
             callback_data=f"select_emoji:{s.custom_emoji_id}",
             icon_custom_emoji_id=s.custom_emoji_id
         )
