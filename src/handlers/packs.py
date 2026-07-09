@@ -936,7 +936,7 @@ async def handle_guest_mode_reply(
                     await guest_safe_reply(
                         message,
                         l10n.get_text(locale, "msg-select-emoji"),
-                        reply_markup=get_multiple_emojis_keyboard(locale, stickers)
+                        reply_markup=get_multiple_emojis_keyboard(locale, stickers, is_guest_mode=True)
                     )
                     return
             except Exception as e:
