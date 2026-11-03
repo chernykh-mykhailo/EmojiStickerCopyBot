@@ -1,5 +1,23 @@
 import io
+import logging
 from PIL import Image
+
+logger = logging.getLogger(__name__)
+
+_rembg_session = None
+
+
+def get_rembg_session():
+    """Lazy-load and cache rembg silueta session"""
+    global _rembg_session
+    if _rembg_session is None:
+        try:
+            from rembg import new_session
+
+            _rembg_session = new_session("silueta")
+        except Exception as e:
+            logger.error(f"Failed to load rembg session: {e}")
+    return _rembg_session
 
 
 class ImageProcessor:
@@ -35,6 +53,27 @@ class ImageProcessor:
         return out.getvalue()
 
     @staticmethod
+    def remove_background(img: Image.Image) -> Image.Image:
+        """Remove background using AI segmentation (rembg silueta model)"""
+        if img.mode != "RGBA":
+            img = img.convert("RGBA")
+
+        # Downscale large images before AI segmentation to speed up CPU inference
+        max_dim = max(img.width, img.height)
+        if max_dim > 512:
+            img.thumbnail((512, 512), Image.LANCZOS)
+
+        session = get_rembg_session()
+        if session:
+            try:
+                from rembg import remove
+
+                return remove(img, session=session)
+            except Exception as e:
+                logger.error(f"rembg removal failed: {e}")
+        return img
+
+    @staticmethod
     def prepare_regular(file_data: bytes) -> bytes:
         """Resize to EXACTLY 512x512 for regular stickers"""
         img = Image.open(io.BytesIO(file_data))
@@ -48,20 +87,9 @@ class ImageProcessor:
 
     @staticmethod
     def prepare_emoji_nobg(file_data: bytes) -> bytes:
-        """Resize to 100x100 and attempt to clear background"""
+        """Resize to 100x100 and clear background using AI segmentation"""
         img = Image.open(io.BytesIO(file_data))
-        if img.mode != "RGBA":
-            img = img.convert("RGBA")
-
-        datas = img.getdata()
-        new_data = []
-        for item in datas:
-            if item[0] > 245 and item[1] > 245 and item[2] > 245:
-                new_data.append((255, 255, 255, 0))
-            else:
-                new_data.append(item)
-        img.putdata(new_data)
-
+        img = ImageProcessor.remove_background(img)
         return ImageProcessor._fit_and_pad(img, 100)
 
     @staticmethod
