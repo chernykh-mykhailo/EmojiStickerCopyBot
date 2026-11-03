@@ -7,12 +7,14 @@ async def set_commands(bot: Bot):
     commands_en = [
         BotCommand(command="start", description="Main menu / Welcome"),
         BotCommand(command="packs", description="Manage sticker packs"),
+        BotCommand(command="cancel", description="Cancel current action / Reset"),
     ]
 
     # Ukrainian
     commands_uk = [
         BotCommand(command="start", description="Головне меню"),
         BotCommand(command="packs", description="Керування паками"),
+        BotCommand(command="cancel", description="Скасувати поточну дію / Скинути"),
     ]
 
     # Set default commands

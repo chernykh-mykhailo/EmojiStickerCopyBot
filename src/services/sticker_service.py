@@ -18,42 +18,35 @@ class StickerService:
         is_source_emoji: bool = None,
     ) -> tuple[bytes | str, str]:
         """Download file and convert/resize it based on target pack type"""
-        # Determine base format from target
-        res_format = "static"
-        if "anim" in target_format:
-            res_format = "animated"
-        elif "video" in target_format:
-            res_format = "video"
+        # Determine format if source sticker is known
+        source_type = None
+        is_source_emoji = None
+        if source_sticker:
+            source_type = (
+                "animated"
+                if source_sticker.is_animated
+                else ("video" if source_sticker.is_video else "static")
+            )
+            is_source_emoji = getattr(source_sticker, "type", "") == "custom_emoji"
 
         if target_format == "copy_only":
-            return file_id, res_format
+            fmt = source_type or ("animated" if "anim" in target_format else ("video" if "video" in target_format else "static"))
+            return file_id, fmt
 
         # Fast path: if it's a sticker and matches target format perfectly
         if target_format != "emoji_nobg":
-            if source_sticker:
-                source_type = "regular"
-                if source_sticker.is_animated:
-                    source_type = "animated"
-                elif source_sticker.is_video:
-                    source_type = "video"
-                is_source_emoji = source_sticker.type == "custom_emoji"
-
             if source_type and is_source_emoji is not None:
                 is_target_emoji = "emoji" in target_format
-                # Check if types match (static vs animated vs video)
                 type_matches = (
-                    (source_type == "regular" and target_format == "regular")
-                    or (source_type == "animated" and "anim" in target_format)
-                    or (source_type == "video" and "video" in target_format)
-                    or (source_type == "regular" and target_format == "custom_emoji")
+                    (source_type == "static" and target_format in ["regular", "copy", "custom_emoji"])
+                    or (source_type == "animated" and ("anim" in target_format or target_format == "animated"))
+                    or (source_type == "video" and ("video" in target_format or target_format == "video"))
                 )
 
-                # For emojis, we still might need to resize if it's a regular sticker (512 -> 100)
-                # So only fast-path if it's ALREADY an emoji or it's a regular-to-regular copy
+                # For emojis, only fast-path if it's already an emoji (100x100) or regular-to-regular copy
                 if type_matches and is_target_emoji == is_source_emoji:
-                    # If it's animated, we must ensure it is not too big
                     if source_type == "animated":
-                        if source_sticker and source_sticker.file_size and source_sticker.file_size <= 64000:
+                        if source_sticker.file_size and source_sticker.file_size <= 64000:
                             return file_id, source_type
                     else:
                         return file_id, source_type

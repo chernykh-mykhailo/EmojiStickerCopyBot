@@ -168,14 +168,24 @@ async def process_name(message: types.Message, state: FSMContext, bot: Bot):
     if not message.text:
         return
     name = message.text.strip()
-    if not re.match(r"^[a-zA-Z0-9_]+$", name):
-        await guest_safe_reply(message, 
-            l10n.get_text(message.from_user.language_code, "err-invalid-name")
+    data = await state.get_data()
+    error_count = data.get("name_error_count", 0)
+
+    if not re.match(r"^[a-zA-Z][a-zA-Z0-9_]*$", name):
+        error_count += 1
+        await state.update_data(name_error_count=error_count)
+        msg_text = l10n.get_text(message.from_user.language_code, "err-invalid-name")
+        if error_count >= 2:
+            msg_text += "\n\n" + l10n.get_text(message.from_user.language_code, "hint-cancel")
+        await guest_safe_reply(
+            message,
+            msg_text,
+            reply_markup=get_cancel_keyboard(message.from_user.language_code),
         )
         return
 
-    data = await state.get_data()
-    await finalize_pack_setup(message, state, bot, name, data.get("pack_title"))
+    target_format = data.get("target_format")
+    await finalize_pack_setup(message, state, bot, name, data.get("pack_title"), target_format)
 
 
 async def finalize_pack_setup(
@@ -184,12 +194,43 @@ async def finalize_pack_setup(
     bot: Bot,
     name_short: str,
     title: str,
-    target_format: str = "regular",
+    target_format: str = None,
 ):
     data = await state.get_data()
     sticker_type = data.get("sticker_type", "regular")
-    if "emoji" in target_format:
+
+    if not target_format:
+        target_format = data.get("target_format")
+
+    if not target_format:
+        if sticker_type == "custom_emoji" or data.get("pending_is_emoji"):
+            pending_type = data.get("pending_sticker_type", "static")
+            if pending_type == "animated":
+                target_format = "custom_emoji_anim"
+            elif pending_type == "video":
+                target_format = "custom_emoji_video"
+            else:
+                target_format = "custom_emoji"
+        elif sticker_type == "animated":
+            target_format = "animated"
+        elif sticker_type == "video":
+            target_format = "video"
+        else:
+            target_format = "regular"
+
+    if "emoji" in target_format or sticker_type == "custom_emoji" or data.get("pending_is_emoji"):
         sticker_type = "custom_emoji"
+        if "emoji" not in target_format:
+            pending_type = data.get("pending_sticker_type", "static")
+            if pending_type == "animated" or target_format == "animated":
+                target_format = "custom_emoji_anim"
+            elif pending_type == "video" or target_format == "video":
+                target_format = "custom_emoji_video"
+            else:
+                target_format = "custom_emoji"
+
+    if not title:
+        title = data.get("pack_title") or name_short
 
     me = await bot.get_me()
     full_name = f"{name_short}_by_{me.username}"
@@ -291,16 +332,23 @@ async def finalize_pack_setup(
                 )
     except Exception as e:
         logger.exception(f"Error in finalize_pack_setup: {e}")
+        fail_count = data.get("name_error_count", 0) + 1
+        await state.update_data(name_error_count=fail_count)
+        err_msg = l10n.get_text(user.language_code, "err-generic", error=html.quote(str(e)))
+        if fail_count >= 2:
+            err_msg += "\n\n" + l10n.get_text(user.language_code, "hint-cancel")
         if isinstance(event, types.CallbackQuery):
             await guest_safe_edit_text(
                 event,
-                l10n.get_text(user.language_code, "err-generic", error=html.quote(str(e))),
+                err_msg,
+                reply_markup=get_cancel_keyboard(user.language_code),
                 parse_mode="HTML",
             )
         else:
             await guest_safe_reply(
                 event,
-                l10n.get_text(user.language_code, "err-generic", error=html.quote(str(e))),
+                err_msg,
+                reply_markup=get_cancel_keyboard(user.language_code),
                 parse_mode="HTML",
             )
 
@@ -493,10 +541,28 @@ async def finalize_cloning_setup(
     bot: Bot,
     name_short: str,
     title: str,
-    target_format: str = "regular",
+    target_format: str = None,
 ):
     data = await state.get_data()
     source_set_name = data.get("source_set_name")
+
+    if not target_format:
+        target_format = data.get("target_format")
+
+    if not target_format:
+        if data.get("pending_is_emoji"):
+            pending_type = data.get("pending_sticker_type", "static")
+            if pending_type == "animated":
+                target_format = "custom_emoji_anim"
+            elif pending_type == "video":
+                target_format = "custom_emoji_video"
+            else:
+                target_format = "custom_emoji"
+        else:
+            target_format = "regular"
+
+    if not title:
+        title = data.get("cloning_title") or data.get("pack_title") or name_short
 
     me = await bot.get_me()
     full_name = f"{name_short}_by_{me.username}"
@@ -544,16 +610,26 @@ async def process_cloning_name(message: types.Message, state: FSMContext, bot: B
     if not message.text:
         return
     name_short = message.text.strip()
+    data = await state.get_data()
+    error_count = data.get("name_error_count", 0)
+
     if not re.match(r"^[a-zA-Z][a-zA-Z0-9_]*$", name_short):
-        await guest_safe_reply(message, 
-            l10n.get_text(message.from_user.language_code, "err-invalid-name"),
+        error_count += 1
+        await state.update_data(name_error_count=error_count)
+        msg_text = l10n.get_text(message.from_user.language_code, "err-invalid-name")
+        if error_count >= 2:
+            msg_text += "\n\n" + l10n.get_text(message.from_user.language_code, "hint-cancel")
+        await guest_safe_reply(
+            message,
+            msg_text,
+            reply_markup=get_cancel_keyboard(message.from_user.language_code),
             parse_mode="HTML",
         )
         return
 
-    data = await state.get_data()
-    title = data.get("cloning_title")
-    await finalize_cloning_setup(message, state, bot, name_short, title)
+    title = data.get("cloning_title") or data.get("pack_title")
+    target_format = data.get("target_format")
+    await finalize_cloning_setup(message, state, bot, name_short, title, target_format)
 
 
 async def run_cloning(
@@ -1023,10 +1099,25 @@ async def process_copy_step(callback: types.CallbackQuery, state: FSMContext, bo
         title = suggestions[0]
         slug = title.replace(" ", "")
 
-        target_format = "regular"
-        if "emoji" in step:
-            target_format = "custom_emoji"
-            title = f"{title} (Emoji)"
+        is_emoji = data.get("pending_is_emoji", False)
+        pending_type = data.get("pending_sticker_type", "static")
+
+        if "emoji" in step or is_emoji:
+            if pending_type == "animated":
+                target_format = "custom_emoji_anim"
+            elif pending_type == "video":
+                target_format = "custom_emoji_video"
+            else:
+                target_format = "custom_emoji"
+            if "(Emoji)" not in title:
+                title = f"{title} (Emoji)"
+        else:
+            if pending_type == "animated":
+                target_format = "animated"
+            elif pending_type == "video":
+                target_format = "video"
+            else:
+                target_format = "regular"
 
         if step == "quick_create":
             await finalize_pack_setup(callback, state, bot, slug, title, target_format)

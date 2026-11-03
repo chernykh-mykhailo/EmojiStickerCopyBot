@@ -50,3 +50,7 @@ msg-pack-removed = ✅ Pack successfully removed from the list.
 msg-copying-one = ⏳ Copying sticker in {$format} format...
 msg-guest-mode = ℹ️ Processing premium content from the replied message...
 msg-select-emoji = ✨ I found several premium emojis. Please choose one:
+
+msg-cancelled = ❌ Action cancelled. All processes reset.
+msg-nothing-to-cancel = ℹ️ No active action to cancel.
+hint-cancel = 💡 If you want to reset or start over, send /cancel
