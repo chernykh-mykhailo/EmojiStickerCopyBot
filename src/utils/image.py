@@ -64,6 +64,26 @@ class ImageProcessor:
         return out.getvalue()
 
     @staticmethod
+    def _solidify_alpha(img: Image.Image, threshold: int = 90) -> Image.Image:
+        """Make foreground opaque to prevent ghostly/translucent emojis on dark themes"""
+        if img.mode != "RGBA":
+            return img
+        import numpy as np
+
+        arr = np.array(img)
+        a = arr[:, :, 3]
+        new_a = np.zeros_like(a)
+        mask_solid = a >= threshold
+        mask_trans = (a > 30) & (a < threshold)
+        new_a[mask_solid] = 255
+        if np.any(mask_trans):
+            new_a[mask_trans] = (
+                (a[mask_trans] - 30) / float(threshold - 30) * 255
+            ).astype(np.uint8)
+        arr[:, :, 3] = new_a
+        return Image.fromarray(arr)
+
+    @staticmethod
     def remove_background(img: Image.Image, model: str = "isnet-general-use") -> Image.Image:
         """Remove background using AI segmentation (defaults to isnet-general-use)"""
         if img.mode != "RGBA":
@@ -79,7 +99,8 @@ class ImageProcessor:
             try:
                 from rembg import remove
 
-                return remove(img, session=session)
+                res = remove(img, session=session)
+                return ImageProcessor._solidify_alpha(res)
             except Exception as e:
                 logger.error(f"rembg removal failed: {e}")
         return img
