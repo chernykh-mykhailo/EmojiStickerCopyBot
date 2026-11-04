@@ -1,23 +1,34 @@
 import io
 import logging
+from typing import Any
 from PIL import Image
 
 logger = logging.getLogger(__name__)
 
-_rembg_session = None
+_rembg_sessions: dict[str, Any] = {}
+
+MODEL_MAPPING = {
+    "isnet": "isnet-general-use",
+    "isnet-general-use": "isnet-general-use",
+    "silueta": "silueta",
+    "u2net": "u2net",
+}
 
 
-def get_rembg_session():
-    """Lazy-load and cache rembg silueta session"""
-    global _rembg_session
-    if _rembg_session is None:
+def get_rembg_session(model: str = "isnet-general-use"):
+    """Lazy-load and cache rembg session by model name"""
+    global _rembg_sessions
+    model_name = MODEL_MAPPING.get(model, model)
+    if model_name not in _rembg_sessions:
         try:
             from rembg import new_session
 
-            _rembg_session = new_session("silueta")
+            _rembg_sessions[model_name] = new_session(model_name)
         except Exception as e:
-            logger.error(f"Failed to load rembg session: {e}")
-    return _rembg_session
+            logger.error(f"Failed to load rembg session for {model_name}: {e}")
+            if model_name != "silueta":
+                return get_rembg_session("silueta")
+    return _rembg_sessions.get(model_name)
 
 
 class ImageProcessor:
@@ -53,8 +64,8 @@ class ImageProcessor:
         return out.getvalue()
 
     @staticmethod
-    def remove_background(img: Image.Image) -> Image.Image:
-        """Remove background using AI segmentation (rembg silueta model)"""
+    def remove_background(img: Image.Image, model: str = "isnet-general-use") -> Image.Image:
+        """Remove background using AI segmentation (defaults to isnet-general-use)"""
         if img.mode != "RGBA":
             img = img.convert("RGBA")
 
@@ -63,7 +74,7 @@ class ImageProcessor:
         if max_dim > 512:
             img.thumbnail((512, 512), Image.LANCZOS)
 
-        session = get_rembg_session()
+        session = get_rembg_session(model)
         if session:
             try:
                 from rembg import remove
@@ -80,16 +91,23 @@ class ImageProcessor:
         return ImageProcessor._fit_and_pad(img, 512)
 
     @staticmethod
+    def prepare_regular_nobg(file_data: bytes, model: str = "isnet-general-use") -> bytes:
+        """Resize to 512x512 and clear background"""
+        img = Image.open(io.BytesIO(file_data))
+        img = ImageProcessor.remove_background(img, model=model)
+        return ImageProcessor._fit_and_pad(img, 512)
+
+    @staticmethod
     def prepare_emoji(file_data: bytes) -> bytes:
         """Resize to EXACTLY 100x100 for emoji stickers"""
         img = Image.open(io.BytesIO(file_data))
         return ImageProcessor._fit_and_pad(img, 100)
 
     @staticmethod
-    def prepare_emoji_nobg(file_data: bytes) -> bytes:
+    def prepare_emoji_nobg(file_data: bytes, model: str = "isnet-general-use") -> bytes:
         """Resize to 100x100 and clear background using AI segmentation"""
         img = Image.open(io.BytesIO(file_data))
-        img = ImageProcessor.remove_background(img)
+        img = ImageProcessor.remove_background(img, model=model)
         return ImageProcessor._fit_and_pad(img, 100)
 
     @staticmethod

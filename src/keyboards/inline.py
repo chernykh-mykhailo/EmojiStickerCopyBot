@@ -251,3 +251,25 @@ def get_multiple_emojis_keyboard(locale: str, stickers: list, is_guest_mode: boo
     )
     builder.adjust(3)
     return builder.as_markup()
+
+
+def get_bg_engine_keyboard(locale: str, action_prefix: str = "copy_bg"):
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text=l10n.get_text(locale, "btn-bg-isnet"),
+        callback_data=f"{action_prefix}:isnet",
+    )
+    builder.button(
+        text=l10n.get_text(locale, "btn-bg-u2net"),
+        callback_data=f"{action_prefix}:u2net",
+    )
+    builder.button(
+        text=l10n.get_text(locale, "btn-bg-silueta"),
+        callback_data=f"{action_prefix}:silueta",
+    )
+    builder.button(
+        text=l10n.get_text(locale, "btn-back"),
+        callback_data="copy_step:format" if action_prefix == "copy_bg" else "copy_step:clone_format",
+    )
+    builder.adjust(1)
+    return builder.as_markup()

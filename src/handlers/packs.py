@@ -15,6 +15,7 @@ from utils.l10n import l10n
 from utils.guest import guest_safe_reply, guest_safe_edit_text
 from utils.image import ImageProcessor
 from keyboards.inline import (
+    get_bg_engine_keyboard,
     get_packs_keyboard,
     get_cancel_keyboard,
     get_done_keyboard,
@@ -255,8 +256,9 @@ async def finalize_pack_setup(
 
         if file_id:
             # Quick Create flow: create with actual sticker
+            bg_model = data.get("bg_model", "isnet-general-use")
             file_data, sticker_format = await sticker_service.download_and_process(
-                bot, file_id, target_format
+                bot, file_id, target_format, bg_model=bg_model
             )
             input_sticker = sticker_service.create_input_sticker(
                 file_data, emoji, sticker_format
@@ -431,8 +433,16 @@ async def process_item(message: types.Message, state: FSMContext, bot: Bot):
                 logger.warning(f"Failed to delete placeholder: {e}")
 
         await proc_msg.delete()
-        await guest_safe_answer(message, 
-            l10n.get_text(message.from_user.language_code, "item-added", count="?")
+        await guest_safe_answer(
+            message,
+            l10n.get_text(
+                message.from_user.language_code,
+                "item-added",
+                title=data.get("pack_title", full_name),
+                name=full_name,
+                count="?",
+            ),
+            parse_mode="HTML",
         )
     except Exception as e:
         logger.exception(f"Error processing item: {e}")
@@ -1141,6 +1151,17 @@ async def process_clone_format(
     callback: types.CallbackQuery, state: FSMContext, bot: Bot
 ):
     fmt = callback.data.split(":")[1]
+    if fmt == "emoji_nobg":
+        await state.update_data(target_format=fmt)
+        await guest_safe_edit_text(
+            callback,
+            l10n.get_text(callback.from_user.language_code, "msg-select-bg-engine"),
+            reply_markup=get_bg_engine_keyboard(callback.from_user.language_code, "clone_bg"),
+            parse_mode="HTML",
+        )
+        await callback.answer()
+        return
+
     data = await state.get_data()
     set_name = data.get("pending_set_name")
 
@@ -1191,6 +1212,17 @@ async def process_clone_format(
 @router.callback_query(F.data.startswith("copy_fmt:"))
 async def process_copy_format(callback: types.CallbackQuery, state: FSMContext):
     fmt = callback.data.split(":")[1]
+    if fmt == "emoji_nobg":
+        await state.update_data(target_format=fmt)
+        await guest_safe_edit_text(
+            callback,
+            l10n.get_text(callback.from_user.language_code, "msg-select-bg-engine"),
+            reply_markup=get_bg_engine_keyboard(callback.from_user.language_code, "copy_bg"),
+            parse_mode="HTML",
+        )
+        await callback.answer()
+        return
+
     await state.update_data(target_format=fmt)
     data = await state.get_data()
 
@@ -1233,6 +1265,71 @@ async def process_copy_format(callback: types.CallbackQuery, state: FSMContext):
                 compatible_packs, callback.from_user.language_code
             ),
         )
+    await callback.answer()
+
+
+
+@router.callback_query(F.data.startswith("copy_bg:"))
+async def process_copy_bg_engine(callback: types.CallbackQuery, state: FSMContext):
+    engine = callback.data.split(":")[1]
+    await state.update_data(bg_model=engine, target_format="emoji_nobg")
+    data = await state.get_data()
+
+    if data.get("cloning_mode"):
+        await state.set_state(PackCreation.cloning_title)
+        suggestions = await get_unique_suggestions()
+        await guest_safe_edit_text(
+            callback,
+            l10n.get_text(callback.from_user.language_code, "prompt-title"),
+            reply_markup=get_title_suggestions_keyboard(
+                callback.from_user.language_code, suggestions
+            ),
+        )
+        await callback.answer()
+        return
+
+    sticker_repo = container.resolve(StickerRepository)
+    packs = await sticker_repo.get_by_creator(callback.from_user.id)
+    compatible_packs = [p for p in packs if p.set_type == "custom_emoji"]
+
+    if not compatible_packs:
+        await guest_safe_edit_text(
+            callback,
+            l10n.get_text(callback.from_user.language_code, "msg-no-packs-create"),
+            reply_markup=get_first_pack_keyboard(callback.from_user.language_code),
+        )
+    else:
+        await guest_safe_edit_text(
+            callback,
+            l10n.get_text(callback.from_user.language_code, "msg-select-target"),
+            reply_markup=get_user_packs_keyboard(
+                compatible_packs, callback.from_user.language_code
+            ),
+        )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("clone_bg:"))
+async def process_clone_bg_engine(
+    callback: types.CallbackQuery, state: FSMContext, bot: Bot
+):
+    engine = callback.data.split(":")[1]
+    await state.update_data(bg_model=engine, target_format="emoji_nobg")
+    data = await state.get_data()
+    set_name = data.get("pending_set_name")
+
+    if not set_name:
+        await callback.answer(
+            "❌ This sticker doesn't belong to a pack.", show_alert=True
+        )
+        return
+
+    suggestions = await get_unique_suggestions(1)
+    title = f"{suggestions[0]} (Emoji)"
+    slug = re.sub(r"[^a-zA-Z0-9_]", "", title)
+
+    await state.update_data(source_set_name=set_name)
+    await finalize_cloning_setup(callback, state, bot, slug, title, "emoji_nobg")
     await callback.answer()
 
 
@@ -1403,6 +1500,7 @@ async def add_item_to_pack(
                 )
 
             # We use the selected format for processing, but the pack type for final storage
+            bg_model = data.get("bg_model", "isnet-general-use")
             file_data, sticker_format = await sticker_service.download_and_process(
                 bot,
                 file_id,
@@ -1410,6 +1508,7 @@ async def add_item_to_pack(
                 source_sticker=message.sticker if not is_callback else None,
                 source_type=data.get("pending_sticker_type"),
                 is_source_emoji=data.get("pending_is_emoji"),
+                bg_model=bg_model,
             )
 
             input_sticker = sticker_service.create_input_sticker(
@@ -1420,12 +1519,14 @@ async def add_item_to_pack(
             msg_text = l10n.get_text(
                 message.from_user.language_code,
                 "item-added",
+                title=pack_info.title,
+                name=pack_name,
                 count=pack_info.sticker_count + 1,
             )
             if is_callback:
-                await message.edit_text(msg_text)
+                await message.edit_text(msg_text, parse_mode="HTML")
             elif proc_msg:
-                await proc_msg.edit_text(msg_text)
+                await proc_msg.edit_text(msg_text, parse_mode="HTML")
         else:
             await guest_safe_answer(message, "❌ Support for text-only items coming soon.")
     except Exception as e:

@@ -63,3 +63,8 @@ msg-select-emoji = ✨ Я знайшов кілька преміум емодз�
 msg-cancelled = ❌ Дія скасована. Всі процеси скинуто.
 msg-nothing-to-cancel = ℹ️ Немає активних дій для скасування.
 hint-cancel = 💡 Якщо щось пішло не так або хочеш почати спочатку, надішли /cancel
+
+msg-select-bg-engine = 🤖 Оберіть AI-двигун для вирізання фону:
+btn-bg-isnet = 🐱 ISNet (Тварини та предмети — топ)
+btn-bg-u2net = 🎯 U2Net (Універсальний)
+btn-bg-silueta = 👤 Silueta (Швидкий для людей)

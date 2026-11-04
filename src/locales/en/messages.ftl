@@ -54,3 +54,8 @@ msg-select-emoji = ✨ I found several premium emojis. Please choose one:
 msg-cancelled = ❌ Action cancelled. All processes reset.
 msg-nothing-to-cancel = ℹ️ No active action to cancel.
 hint-cancel = 💡 If you want to reset or start over, send /cancel
+
+msg-select-bg-engine = 🤖 Select AI engine for background removal:
+btn-bg-isnet = 🐱 ISNet (Animals & Objects — recommended)
+btn-bg-u2net = 🎯 U2Net (Universal)
+btn-bg-silueta = 👤 Silueta (Fast for humans)

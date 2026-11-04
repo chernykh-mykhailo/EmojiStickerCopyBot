@@ -16,6 +16,7 @@ class StickerService:
         source_sticker: any = None,
         source_type: str = None,
         is_source_emoji: bool = None,
+        bg_model: str = "isnet-general-use",
     ) -> tuple[bytes | str, str]:
         """Download file and convert/resize it based on target pack type"""
         # Determine format if source sticker is known
@@ -34,7 +35,7 @@ class StickerService:
             return file_id, fmt
 
         # Fast path: if it's a sticker and matches target format perfectly
-        if target_format != "emoji_nobg":
+        if "nobg" not in target_format:
             if source_type and is_source_emoji is not None:
                 is_target_emoji = "emoji" in target_format
                 type_matches = (
@@ -60,6 +61,21 @@ class StickerService:
             (".webm", ".mp4", ".gif", ".mov", ".mkv")
         )
         is_source_anim = file.file_path.endswith(".tgs")
+
+        # 0. Handle Target: NOBG (Video or Static)
+        if "nobg" in target_format:
+            if is_source_video or "video" in target_format:
+                size = 100 if "emoji" in target_format else 512
+                return (
+                    VideoProcessor.process_video_nobg(file_data, size=size, model=bg_model),
+                    "video",
+                )
+            elif is_source_anim:
+                return file_data, "animated"
+            else:
+                if "emoji" in target_format:
+                    return ImageProcessor.prepare_emoji_nobg(file_data, model=bg_model), "static"
+                return ImageProcessor.prepare_regular_nobg(file_data, model=bg_model), "static"
 
         # 1. Handle Target: VIDEO
         if "video" in target_format:
@@ -92,8 +108,6 @@ class StickerService:
             # Try to extract frame
             try:
                 frame_data = VideoProcessor.extract_frame(file_data)
-                if target_format == "emoji_nobg":
-                    return ImageProcessor.prepare_emoji_nobg(frame_data), "static"
                 if is_target_emoji:
                     return ImageProcessor.prepare_emoji(frame_data), "static"
                 return ImageProcessor.prepare_regular(frame_data), "static"
@@ -104,8 +118,6 @@ class StickerService:
         if target_format in ["regular", "copy"]:
             return ImageProcessor.prepare_regular(file_data), "static"
         elif "emoji" in target_format:
-            if target_format == "emoji_nobg":
-                return ImageProcessor.prepare_emoji_nobg(file_data), "static"
             return ImageProcessor.prepare_emoji(file_data), "static"
 
         return file_data, "static"
