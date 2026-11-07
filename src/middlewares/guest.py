@@ -11,21 +11,26 @@ class GuestMessageStripMiddleware(BaseMiddleware):
         if not bot:
             return await handler(event, data)
 
-        me = await bot.me()
-        bot_mention = f"@{me.username} "
-        bot_mention_short = f"@{me.username}"
+        me = await bot.get_me()
+        bot_mention = f"@{me.username.lower()}"
 
         text = event.text
         caption = event.caption
 
         updates = {}
         if text:
-            if text.startswith(bot_mention) and text[len(bot_mention):].startswith("/"):
-                updates["text"] = text[len(bot_mention):]
-        
+            clean_text = text.strip()
+            if clean_text.lower().startswith(bot_mention):
+                remainder = clean_text[len(bot_mention):].strip()
+                if remainder.startswith("/"):
+                    updates["text"] = remainder
+
         if caption:
-            if caption.startswith(bot_mention) and caption[len(bot_mention):].startswith("/"):
-                updates["caption"] = caption[len(bot_mention):]
+            clean_caption = caption.strip()
+            if clean_caption.lower().startswith(bot_mention):
+                remainder = clean_caption[len(bot_mention):].strip()
+                if remainder.startswith("/"):
+                    updates["caption"] = remainder
 
         if updates:
             event = event.model_copy(update=updates)

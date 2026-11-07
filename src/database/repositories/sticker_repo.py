@@ -69,3 +69,12 @@ class StickerRepository:
             )
             result = await session.execute(stmt)
             return list(result.scalars().all())
+
+    async def update_set_type(self, name: str, set_type: str):
+        async with self.db_helper.session() as session:
+            stmt = select(StickerSet).where(StickerSet.name == name)
+            result = await session.execute(stmt)
+            sticker_set = result.scalar_one_or_none()
+            if sticker_set:
+                sticker_set.set_type = set_type
+                await session.commit()

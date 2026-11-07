@@ -15,7 +15,7 @@ class LocalizationManager:
             if not os.path.isdir(locale_dir):
                 continue
 
-            bundle = FluentBundle([locale])
+            bundle = FluentBundle([locale], use_isolating=False)
             for filename in os.listdir(locale_dir):
                 if filename.endswith(".ftl"):
                     with open(

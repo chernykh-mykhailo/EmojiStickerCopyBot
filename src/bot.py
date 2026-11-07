@@ -27,6 +27,7 @@ async def main():
         await conn.run_sync(Base.metadata.create_all)
 
     from middlewares.guest import GuestMessageStripMiddleware
+    dp.message.outer_middleware(GuestMessageStripMiddleware())
     dp.guest_message.outer_middleware(GuestMessageStripMiddleware())
 
     # Register routers

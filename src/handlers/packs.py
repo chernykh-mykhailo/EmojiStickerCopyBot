@@ -199,7 +199,7 @@ async def finalize_pack_setup(
     target_format: str = None,
 ):
     data = await state.get_data()
-    sticker_type = data.get("sticker_type", "regular")
+    sticker_type = data.get("sticker_type") or data.get("pack_type") or "regular"
 
     if not target_format:
         target_format = data.get("target_format")
@@ -230,6 +230,12 @@ async def finalize_pack_setup(
                 target_format = "custom_emoji_video"
             else:
                 target_format = "custom_emoji"
+    elif target_format == "animated" or sticker_type == "animated":
+        sticker_type = "animated"
+    elif target_format == "video" or sticker_type == "video":
+        sticker_type = "video"
+    else:
+        sticker_type = "regular"
 
     if not title:
         title = data.get("pack_title") or name_short
@@ -796,14 +802,30 @@ async def handle_incoming_media(message: types.Message, state: FSMContext, bot: 
             return
 
     # --- GUEST MODE: Check if this is a reply to premium content ---
-    if message.reply_to_message and message.text:
-        # Check if user replied with bot's username (or just part of it)
+    if message.reply_to_message:
         me = await bot.get_me()
         bot_username = me.username.lower()
-        user_text = message.text.strip().lower()
-        # Match @username or just username in the reply
-        if bot_username in user_text or f"@{bot_username}" in user_text:
+        user_text = (message.text or message.caption or "").strip().lower()
+        is_reply_to_bot = (
+            message.reply_to_message.from_user
+            and message.reply_to_message.from_user.id == me.id
+        )
+        if bot_username in user_text or f"@{bot_username}" in user_text or is_reply_to_bot:
             await handle_guest_mode_reply(message, state, bot, me)
+            return
+
+    # In group/supergroup chats, ignore messages not addressed to the bot
+    if message.chat.type in ("group", "supergroup"):
+        me = await bot.get_me()
+        bot_username = me.username.lower()
+        text_content = (message.text or message.caption or "").lower()
+        is_mentioned = bot_username in text_content or f"@{bot_username}" in text_content
+        is_reply_to_bot = (
+            message.reply_to_message
+            and message.reply_to_message.from_user
+            and message.reply_to_message.from_user.id == me.id
+        )
+        if not (is_mentioned or is_reply_to_bot):
             return
 
     # Check if it's an emoji or media
@@ -1211,7 +1233,9 @@ async def process_clone_format(
 
 
 @router.callback_query(F.data.startswith("copy_fmt:"))
-async def process_copy_format(callback: types.CallbackQuery, state: FSMContext):
+async def process_copy_format(
+    callback: types.CallbackQuery, state: FSMContext, bot: Bot
+):
     fmt = callback.data.split(":")[1]
     if fmt == "emoji_nobg":
         await state.update_data(target_format=fmt)
@@ -1252,7 +1276,24 @@ async def process_copy_format(callback: types.CallbackQuery, state: FSMContext):
             else ("video" if fmt == "video" else "regular")
         )
     )
-    compatible_packs = [p for p in packs if p.set_type == target_type]
+
+    compatible_packs = []
+    for p in packs:
+        if p.set_type == target_type:
+            compatible_packs.append(p)
+        elif p.set_type == "regular" and target_type in ("video", "animated"):
+            try:
+                ts = await bot.get_sticker_set(p.name)
+                if ts.is_video and target_type == "video":
+                    p.set_type = "video"
+                    await sticker_repo.update_set_type(p.name, "video")
+                    compatible_packs.append(p)
+                elif ts.is_animated and target_type == "animated":
+                    p.set_type = "animated"
+                    await sticker_repo.update_set_type(p.name, "animated")
+                    compatible_packs.append(p)
+            except Exception as e:
+                logger.debug(f"Could not verify sticker set {p.name}: {e}")
 
     if not compatible_packs:
         await guest_safe_edit_text(callback, 
@@ -1402,7 +1443,7 @@ async def handle_create_new_from_copy(
     elif target_format == "video":
         pack_type = "video"
 
-    await state.update_data(pack_type=pack_type)
+    await state.update_data(pack_type=pack_type, sticker_type=pack_type)
     await state.set_state(PackCreation.waiting_title)
 
     # Show title prompt with suggestions
@@ -1524,10 +1565,17 @@ async def add_item_to_pack(
                 name=pack_name,
                 count=pack_info.sticker_count + 1,
             )
+            open_markup = get_open_pack_keyboard(
+                message.from_user.language_code, pack_name
+            )
             if is_callback:
-                await message.edit_text(msg_text, parse_mode="HTML")
+                await message.edit_text(
+                    msg_text, parse_mode="HTML", reply_markup=open_markup
+                )
             elif proc_msg:
-                await proc_msg.edit_text(msg_text, parse_mode="HTML")
+                await proc_msg.edit_text(
+                    msg_text, parse_mode="HTML", reply_markup=open_markup
+                )
         else:
             await guest_safe_answer(message, "❌ Support for text-only items coming soon.")
     except Exception as e:
