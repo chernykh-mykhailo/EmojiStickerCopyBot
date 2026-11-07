@@ -3,7 +3,7 @@ msg-start = Привіт! Я допоможу тобі клонувати або
 btn-create-regular = 🖼 Звичайний пак
 btn-create-emoji = 😀 Емодзі пак
 btn-create-animated = ✨ Анімований пак
-btn-create-video = 🎥 Видео пак
+btn-create-video = 🎥 Відео пак
 btn-clone-pack = 👯 Клонувати пак
 btn-my-packs = 📂 Мої паки
 btn-cancel = ❌ Скасувати
@@ -75,3 +75,7 @@ btn-cat-emojis = ✨ Емодзі ({$count})
 btn-back-cats = ⬅️ До категорій
 msg-cat-stickers = 🖼 <b>Твої стікерпаки:</b>
 msg-cat-emojis = ✨ <b>Твої паки емодзі:</b>
+
+msg-no-packs-create = 🤷‍♂️ У тебе ще немає створених паків. Створи свій перший пак:
+msg-select-type = 🎨 Обери тип нового стікерпаку:
+prompt-copy = 📥 Надішли стікер або посилання на пак, який хочеш скопіювати:

@@ -76,3 +76,7 @@ btn-cat-emojis = ✨ Emojis ({$count})
 btn-back-cats = ⬅️ Back to categories
 msg-cat-stickers = 🖼 <b>Your Sticker Packs:</b>
 msg-cat-emojis = ✨ <b>Your Emoji Packs:</b>
+
+msg-no-packs-create = 🤷‍♂️ You don't have any packs yet. Create your first pack:
+msg-select-type = 🎨 Select the type of the new sticker pack:
+prompt-copy = 📥 Send a sticker or a link to the pack you want to copy:
