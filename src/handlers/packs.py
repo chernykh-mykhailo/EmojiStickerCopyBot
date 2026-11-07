@@ -12,7 +12,7 @@ from services.sticker_service import StickerService
 from services.user_service import UserService
 from database.repositories.sticker_repo import StickerRepository
 from utils.l10n import l10n
-from utils.guest import guest_safe_reply, guest_safe_edit_text
+from utils.guest import guest_safe_reply, guest_safe_edit_text, guest_safe_answer
 from utils.image import ImageProcessor
 from keyboards.inline import (
     get_bg_engine_keyboard,
@@ -62,8 +62,9 @@ class CopyMode(StatesGroup):
 
 @router.message(Command("packs"))
 @router.guest_message(Command("packs"))
-async def cmd_packs(message: types.Message):
+async def cmd_packs(message: types.Message, state: FSMContext):
     try:
+        await state.clear()
         user_service = container.resolve(UserService)
         user = await user_service.get_or_create_user(
             message.from_user.id,
