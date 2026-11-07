@@ -68,3 +68,10 @@ msg-select-bg-engine = 🤖 Оберіть AI-двигун для вирізан
 btn-bg-isnet = 🐱 ISNet (Тварини та предмети — топ)
 btn-bg-u2net = 🎯 U2Net (Універсальний)
 btn-bg-silueta = 👤 Silueta (Швидкий для людей)
+
+msg-select-cat = 📂 Обери категорію:
+btn-cat-stickers = 🖼 Стікери ({$count})
+btn-cat-emojis = ✨ Емодзі ({$count})
+btn-back-cats = ⬅️ До категорій
+msg-cat-stickers = 🖼 <b>Твої стікерпаки:</b>
+msg-cat-emojis = ✨ <b>Твої паки емодзі:</b>

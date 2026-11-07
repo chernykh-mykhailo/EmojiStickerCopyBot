@@ -20,6 +20,7 @@ from keyboards.inline import (
     get_cancel_keyboard,
     get_done_keyboard,
     get_copy_menu,
+    get_pack_categories_keyboard,
     get_user_packs_keyboard,
     get_disable_keyboard,
     get_format_selection,
@@ -1391,6 +1392,7 @@ async def start_copy_to(callback: types.CallbackQuery, state: FSMContext):
 async def process_copy_target(
     callback: types.CallbackQuery, state: FSMContext, bot: Bot
 ):
+    await callback.answer()
     pack_name = callback.data.split(":")[1]
     data = await state.get_data()
 
@@ -1401,10 +1403,37 @@ async def process_copy_target(
     if file_id or (emoji and not file_id):  # It might be just an emoji text
         # Perform one-time copy
         await add_item_to_pack(
-            callback.message, pack_name, state, bot, file_id, emoji, is_callback=True
+            callback, pack_name, state, bot, file_id, emoji, is_callback=True
         )
 
+
+@router.callback_query(F.data.startswith("target_pack_page:"))
+async def process_target_pack_page(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
+    page = int(callback.data.split(":")[1])
+    data = await state.get_data()
+    fmt = data.get("target_format", "regular")
+
+    sticker_repo = container.resolve(StickerRepository)
+    packs = await sticker_repo.get_by_creator(callback.from_user.id)
+
+    is_target_emoji = "emoji" in fmt
+    if is_target_emoji:
+        compatible_packs = [p for p in packs if p.set_type == "custom_emoji"]
+    else:
+        compatible_packs = [p for p in packs if p.set_type != "custom_emoji"]
+
+    await guest_safe_edit_text(
+        callback,
+        l10n.get_text(callback.from_user.language_code, "msg-select-target"),
+        reply_markup=get_user_packs_keyboard(
+            compatible_packs,
+            callback.from_user.language_code,
+            prefix="target_pack",
+            page=page,
+            page_size=7,
+        ),
+    )
 
 
 @router.callback_query(F.data == "create_new_from_copy")
@@ -1437,7 +1466,7 @@ async def handle_create_new_from_copy(
 
 
 async def add_item_to_pack(
-    message: types.Message,
+    event: types.Message | types.CallbackQuery,
     pack_name: str,
     state: FSMContext,
     bot: Bot,
@@ -1449,11 +1478,15 @@ async def add_item_to_pack(
     pack_service = container.resolve(PackService)
     sticker_repo = container.resolve(StickerRepository)
 
+    user = event.from_user
+    locale = user.language_code or "uk"
+    message = event.message if isinstance(event, types.CallbackQuery) else event
+
     data = await state.get_data()
     target_format = data.get("target_format", "regular")
 
     # If not provided, get from message
-    if not file_id and not is_callback:
+    if not file_id and not is_callback and message:
         custom_emoji_ids = []
         if message.entities:
             for entity in message.entities:
@@ -1492,42 +1525,42 @@ async def add_item_to_pack(
         elif message.text and len(message.text) <= 2:
             emoji = message.text
 
-    if not file_id and not (message.text and len(message.text) <= 2):
+    if not file_id and not (message and message.text and len(message.text) <= 2):
         return
 
     # Get pack info to determine type
     pack_info = await sticker_repo.get_by_name(pack_name)
     if not pack_info:
-        await guest_safe_answer(message, "❌ Pack not found in database.")
+        if isinstance(event, types.CallbackQuery):
+            await guest_safe_edit_text(event, "❌ Pack not found in database.")
+        else:
+            await guest_safe_answer(message, "❌ Pack not found in database.")
         return
 
+    proc_msg = None
     try:
         if file_id:
-            proc_msg = None
+            copying_text = l10n.get_text(
+                locale,
+                "msg-copying-one",
+                format=target_format,
+            )
             if is_callback:
-                await message.edit_text(
-                    l10n.get_text(
-                        message.from_user.language_code,
-                        "msg-copying-one",
-                        format=target_format,
-                    )
-                )
+                if isinstance(event, types.CallbackQuery):
+                    await guest_safe_edit_text(event, copying_text)
+                elif message:
+                    await message.edit_text(copying_text)
             else:
-                proc_msg = await guest_safe_answer(message, 
-                    l10n.get_text(
-                        message.from_user.language_code,
-                        "msg-copying-one",
-                        format=target_format,
-                    )
-                )
+                proc_msg = await guest_safe_answer(message, copying_text)
 
             # We use the selected format for processing, but the pack type for final storage
             bg_model = data.get("bg_model", "isnet-general-use")
+            source_stk = message.sticker if (message and not is_callback) else None
             file_data, sticker_format = await sticker_service.download_and_process(
                 bot,
                 file_id,
                 target_format,
-                source_sticker=message.sticker if not is_callback else None,
+                source_sticker=source_stk,
                 source_type=data.get("pending_sticker_type"),
                 is_source_emoji=data.get("pending_is_emoji"),
                 bg_model=bg_model,
@@ -1536,36 +1569,44 @@ async def add_item_to_pack(
             input_sticker = sticker_service.create_input_sticker(
                 file_data, emoji, sticker_format
             )
-            await pack_service.add_sticker(message.chat.id, pack_name, input_sticker)
+            # Use creator_id of the pack so Telegram API never receives negative group chat ID
+            await pack_service.add_sticker(pack_info.creator_id, pack_name, input_sticker)
 
             msg_text = l10n.get_text(
-                message.from_user.language_code,
+                locale,
                 "item-added",
                 title=pack_info.title,
                 name=pack_name,
                 count=pack_info.sticker_count + 1,
             )
-            open_markup = get_open_pack_keyboard(
-                message.from_user.language_code, pack_name
-            )
+            open_markup = get_open_pack_keyboard(locale, pack_name)
             if is_callback:
-                await message.edit_text(
-                    msg_text, parse_mode="HTML", reply_markup=open_markup
-                )
+                if isinstance(event, types.CallbackQuery):
+                    await guest_safe_edit_text(
+                        event, msg_text, parse_mode="HTML", reply_markup=open_markup
+                    )
+                elif message:
+                    await message.edit_text(
+                        msg_text, parse_mode="HTML", reply_markup=open_markup
+                    )
             elif proc_msg:
                 await proc_msg.edit_text(
                     msg_text, parse_mode="HTML", reply_markup=open_markup
                 )
         else:
-            await guest_safe_answer(message, "❌ Support for text-only items coming soon.")
+            if isinstance(event, types.CallbackQuery):
+                await guest_safe_edit_text(event, "❌ Support for text-only items coming soon.")
+            else:
+                await guest_safe_answer(message, "❌ Support for text-only items coming soon.")
     except Exception as e:
         logger.exception(f"Error in add_item_to_pack: {e}")
-        err_msg = l10n.get_text(
-            message.from_user.language_code, "err-generic", error=html.quote(str(e))
-        )
+        err_msg = l10n.get_text(locale, "err-generic", error=html.quote(str(e)))
         if is_callback:
-            await message.edit_text(err_msg)
-        else:
+            if isinstance(event, types.CallbackQuery):
+                await guest_safe_edit_text(event, err_msg)
+            elif message:
+                await message.edit_text(err_msg)
+        elif proc_msg:
             await proc_msg.edit_text(err_msg)
 
 
@@ -1597,13 +1638,16 @@ async def show_pack_details(callback: types.CallbackQuery, state: FSMContext):
         await callback.answer("❌ Pack not found.", show_alert=True)
         return
 
-    await guest_safe_edit_text(callback, 
+    back_cat = "emojis" if pack_info.set_type == "custom_emoji" else "stickers"
+    await guest_safe_edit_text(
+        callback, 
         l10n.get_text(
             callback.from_user.language_code, "msg-pack-manage", title=pack_info.title
         ),
         reply_markup=get_pack_manage_keyboard(
-            callback.from_user.language_code, pack_name
+            callback.from_user.language_code, pack_name, back_cat=back_cat
         ),
+        parse_mode="HTML",
     )
     await callback.answer()
 
@@ -1729,18 +1773,68 @@ async def show_my_packs_for_mode(callback: types.CallbackQuery, state: FSMContex
     packs = await sticker_repo.get_by_creator(callback.from_user.id)
 
     if not packs:
-        await guest_safe_edit_text(callback, 
+        await guest_safe_edit_text(
+            callback, 
             l10n.get_text(callback.from_user.language_code, "msg-no-packs-create"),
             reply_markup=get_first_pack_keyboard(callback.from_user.language_code),
         )
         return
 
-    await guest_safe_edit_text(callback, 
-        l10n.get_text(callback.from_user.language_code, "btn-my-packs"),
-        reply_markup=get_user_packs_keyboard(
-            packs, callback.from_user.language_code, prefix="pack_details"
+    stickers_count = sum(1 for p in packs if p.set_type != "custom_emoji")
+    emojis_count = sum(1 for p in packs if p.set_type == "custom_emoji")
+
+    await guest_safe_edit_text(
+        callback, 
+        l10n.get_text(callback.from_user.language_code, "msg-select-cat"),
+        reply_markup=get_pack_categories_keyboard(
+            callback.from_user.language_code, stickers_count, emojis_count
         ),
     )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("my_packs_cat:"))
+async def show_my_packs_category(callback: types.CallbackQuery, state: FSMContext):
+    parts = callback.data.split(":")
+    category = parts[1]  # "stickers" or "emojis"
+    page = int(parts[2]) if len(parts) > 2 else 1
+
+    sticker_repo = container.resolve(StickerRepository)
+    packs = await sticker_repo.get_by_creator(callback.from_user.id)
+
+    if category == "emojis":
+        cat_packs = [p for p in packs if p.set_type == "custom_emoji"]
+        header_text = l10n.get_text(callback.from_user.language_code, "msg-cat-emojis")
+    else:
+        cat_packs = [p for p in packs if p.set_type != "custom_emoji"]
+        header_text = l10n.get_text(callback.from_user.language_code, "msg-cat-stickers")
+
+    if not cat_packs:
+        await guest_safe_edit_text(
+            callback,
+            l10n.get_text(callback.from_user.language_code, "msg-no-packs-create"),
+            reply_markup=get_first_pack_keyboard(callback.from_user.language_code),
+        )
+        return
+
+    await guest_safe_edit_text(
+        callback,
+        header_text,
+        reply_markup=get_user_packs_keyboard(
+            cat_packs,
+            callback.from_user.language_code,
+            prefix="pack_details",
+            page=page,
+            page_size=7,
+            category=category,
+        ),
+        parse_mode="HTML",
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "noop")
+async def callback_noop(callback: types.CallbackQuery):
     await callback.answer()
 
 

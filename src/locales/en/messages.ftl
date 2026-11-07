@@ -59,3 +59,10 @@ msg-select-bg-engine = 🤖 Select AI engine for background removal:
 btn-bg-isnet = 🐱 ISNet (Animals & Objects — recommended)
 btn-bg-u2net = 🎯 U2Net (Universal)
 btn-bg-silueta = 👤 Silueta (Fast for humans)
+
+msg-select-cat = 📂 Select category:
+btn-cat-stickers = 🖼 Stickers ({$count})
+btn-cat-emojis = ✨ Emojis ({$count})
+btn-back-cats = ⬅️ Back to categories
+msg-cat-stickers = 🖼 <b>Your Sticker Packs:</b>
+msg-cat-emojis = ✨ <b>Your Emoji Packs:</b>

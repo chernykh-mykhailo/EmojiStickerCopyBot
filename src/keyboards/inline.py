@@ -164,21 +164,86 @@ def get_first_pack_keyboard(locale: str):
     return builder.as_markup()
 
 
-def get_user_packs_keyboard(packs: list, locale: str, prefix: str = "target_pack"):
+def get_pack_categories_keyboard(locale: str, stickers_count: int, emojis_count: int):
     builder = InlineKeyboardBuilder()
-    for pack in packs:
-        builder.button(text=pack.title, callback_data=f"{prefix}:{pack.name}")
-
     builder.button(
-        text=l10n.get_text(locale, "btn-create-new"),
-        callback_data="create_new_from_copy",
+        text=l10n.get_text(locale, "btn-cat-stickers", count=stickers_count),
+        callback_data="my_packs_cat:stickers:1",
     )
-
-    builder.button(text=l10n.get_text(locale, "btn-back"), callback_data="copy_back")
     builder.button(
-        text=l10n.get_text(locale, "btn-cancel"), callback_data="sticker_cancel"
+        text=l10n.get_text(locale, "btn-cat-emojis", count=emojis_count),
+        callback_data="my_packs_cat:emojis:1",
+    )
+    builder.button(
+        text=l10n.get_text(locale, "btn-back"),
+        callback_data="packs-menu",
     )
     builder.adjust(1)
+    return builder.as_markup()
+
+
+def get_user_packs_keyboard(
+    packs: list,
+    locale: str,
+    prefix: str = "target_pack",
+    page: int = 1,
+    page_size: int = 7,
+    category: str = "stickers",
+):
+    builder = InlineKeyboardBuilder()
+    total_packs = len(packs)
+    total_pages = max(1, (total_packs + page_size - 1) // page_size)
+    page = max(1, min(page, total_pages))
+
+    start_idx = (page - 1) * page_size
+    end_idx = start_idx + page_size
+    current_page_packs = packs[start_idx:end_idx]
+
+    for pack in current_page_packs:
+        builder.button(text=pack.title, callback_data=f"{prefix}:{pack.name}")
+    builder.adjust(1)
+
+    if total_pages > 1:
+        nav_builder = InlineKeyboardBuilder()
+        if prefix == "pack_details":
+            prev_cb = f"my_packs_cat:{category}:{page-1}" if page > 1 else "noop"
+            next_cb = f"my_packs_cat:{category}:{page+1}" if page < total_pages else "noop"
+        else:
+            prev_cb = f"target_pack_page:{page-1}" if page > 1 else "noop"
+            next_cb = f"target_pack_page:{page+1}" if page < total_pages else "noop"
+
+        nav_builder.button(text="⬅️" if page > 1 else "·", callback_data=prev_cb)
+        nav_builder.button(text=f"{page}/{total_pages}", callback_data="noop")
+        nav_builder.button(text="➡️" if page < total_pages else "·", callback_data=next_cb)
+        nav_builder.adjust(3)
+        builder.attach(nav_builder)
+
+    bottom_builder = InlineKeyboardBuilder()
+    if prefix == "pack_details":
+        bottom_builder.button(
+            text=l10n.get_text(locale, "btn-create-new"),
+            callback_data="sticker_create_menu",
+        )
+        bottom_builder.button(
+            text=l10n.get_text(locale, "btn-back-cats"),
+            callback_data="sticker_my_packs",
+        )
+    else:
+        bottom_builder.button(
+            text=l10n.get_text(locale, "btn-create-new"),
+            callback_data="create_new_from_copy",
+        )
+        bottom_builder.button(
+            text=l10n.get_text(locale, "btn-back"),
+            callback_data="copy_back",
+        )
+        bottom_builder.button(
+            text=l10n.get_text(locale, "btn-cancel"),
+            callback_data="sticker_cancel",
+        )
+    bottom_builder.adjust(1)
+    builder.attach(bottom_builder)
+
     return builder.as_markup()
 
 
@@ -199,7 +264,7 @@ def get_open_pack_keyboard(locale: str, name: str):
     return builder.as_markup()
 
 
-def get_pack_manage_keyboard(locale: str, name: str):
+def get_pack_manage_keyboard(locale: str, name: str, back_cat: str = "stickers"):
     builder = InlineKeyboardBuilder()
     builder.button(
         text=l10n.get_text(locale, "btn-open-pack"),
@@ -214,7 +279,7 @@ def get_pack_manage_keyboard(locale: str, name: str):
         callback_data=f"remove_pack:{name}",
     )
     builder.button(
-        text=l10n.get_text(locale, "btn-back"), callback_data="sticker_my_packs"
+        text=l10n.get_text(locale, "btn-back"), callback_data=f"my_packs_cat:{back_cat}:1"
     )
     builder.adjust(1)
     return builder.as_markup()
