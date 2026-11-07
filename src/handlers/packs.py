@@ -1266,34 +1266,14 @@ async def process_copy_format(
     sticker_repo = container.resolve(StickerRepository)
     packs = await sticker_repo.get_by_creator(callback.from_user.id)
 
-    # Filter packs by format (simplified: regular vs emoji)
-    target_type = (
-        "custom_emoji"
-        if "emoji" in fmt
-        else (
-            "animated"
-            if fmt == "animated"
-            else ("video" if fmt == "video" else "regular")
-        )
-    )
-
-    compatible_packs = []
-    for p in packs:
-        if p.set_type == target_type:
-            compatible_packs.append(p)
-        elif p.set_type == "regular" and target_type in ("video", "animated"):
-            try:
-                ts = await bot.get_sticker_set(p.name)
-                if ts.is_video and target_type == "video":
-                    p.set_type = "video"
-                    await sticker_repo.update_set_type(p.name, "video")
-                    compatible_packs.append(p)
-                elif ts.is_animated and target_type == "animated":
-                    p.set_type = "animated"
-                    await sticker_repo.update_set_type(p.name, "animated")
-                    compatible_packs.append(p)
-            except Exception as e:
-                logger.debug(f"Could not verify sticker set {p.name}: {e}")
+    # Filter packs by format: Custom Emoji vs Regular Stickers
+    # Telegram fully supports mixed-format sticker packs (static, animated, and video in the same pack).
+    # The only distinction Telegram enforces is custom_emoji vs regular.
+    is_target_emoji = "emoji" in fmt
+    if is_target_emoji:
+        compatible_packs = [p for p in packs if p.set_type == "custom_emoji"]
+    else:
+        compatible_packs = [p for p in packs if p.set_type != "custom_emoji"]
 
     if not compatible_packs:
         await guest_safe_edit_text(callback, 
