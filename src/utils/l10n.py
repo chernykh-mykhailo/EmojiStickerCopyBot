@@ -30,11 +30,24 @@ class LocalizationManager:
         if not bundle:
             return message_id
 
+        message = None
         try:
             message = bundle.get_message(message_id)
-            if not message or not message.value:
-                return message_id
         except Exception:
+            pass
+
+        # Fallback to default locale bundle if message wasn't found in user's locale bundle
+        if (not message or not message.value) and locale != config.default_locale:
+            default_bundle = self.bundles.get(config.default_locale)
+            if default_bundle:
+                try:
+                    message = default_bundle.get_message(message_id)
+                    if message and message.value:
+                        bundle = default_bundle
+                except Exception:
+                    pass
+
+        if not message or not message.value:
             return message_id
 
         result, errors = bundle.format_pattern(message.value, kwargs)

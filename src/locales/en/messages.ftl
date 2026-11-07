@@ -39,6 +39,16 @@ btn-done = ✅ Done
 btn-open-pack = 📂 Open Pack
 btn-back = 🔙 Back
 btn-create-new = 🆕 Create new pack
+btn-clone-emoji = 😀 Pack to Emoji
+btn-copy-to = 📥 Copy to...
+btn-copy-mode = ⚡ Copy mode
+btn-disable = ❌ Disable
+msg-copy-mode-on = ⚡ <b>Copy mode activated!</b>
+    Now all sent stickers/photos will be added to pack: <b>{$title}</b>
+    <i>Click "Disable" to exit this mode.</i>
+msg-copy-mode-off = ❌ Copy mode disabled.
+msg-my-packs = 📂 Your sticker packs:
+msg-no-packs = 🤷‍♂️ You don't have any packs created yet.
 msg-what-to-do = 🧐 What to do with this object?
 msg-select-target = 🎯 Select pack to add this sticker:
 msg-select-format = ✨ Select format for copying:
